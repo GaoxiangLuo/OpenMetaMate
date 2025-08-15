@@ -1,0 +1,282 @@
+[
+  {
+    "id": "1749487856653w8njn",
+    "name": "Participant/Age/Is Range",
+    "dataType": "Boolean",
+    "description": "Whether or not age is a range",
+    "includeInExtraction": true
+  },
+  {
+    "id": "174948789895548j68",
+    "name": "Participant/Age/Min Age",
+    "dataType": "Numeric",
+    "description": "The minimum age of age range of participant.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494879113748llbw",
+    "name": "Participant/Age/Max Age",
+    "dataType": "Numeric",
+    "description": "The maximum age of age range of participant.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749487929308aaqe6",
+    "name": "Participant/Age/Age",
+    "dataType": "Numeric",
+    "description": "The average age of participant.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749487944846lofj5",
+    "name": "Participant/Gender/Is Percentage",
+    "dataType": "Boolean",
+    "description": "Whether or not gender statistics are in percentage",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749487978394btwuo",
+    "name": "Participant/Gender/Num Male",
+    "dataType": "Numeric",
+    "description": "If the study reports the number of male participants, report that number.\n• If the number of male participants is not reported, even if the male percentage is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the number of male participants but not the male percentage, report only the number of male participants. If the study reports both statistics, report both.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488001185u0k8i",
+    "name": "Participant/Gender/Num Female",
+    "dataType": "Numeric",
+    "description": "If the study reports the number of female participants, report that number.\n• If the number of female participants is not reported, even if the female percentage is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the number of female participants but not the female percentage, report only the number of female participants. If the study reports both statistics, report both.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488048968wmeqq",
+    "name": "Participant/Gender/Percentage Male",
+    "dataType": "Numeric",
+    "description": "If the study reports the percentage of male participants in the sample, report that percentage.\n• If the male percentage is not reported, even if the number of male participants is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the male percentage but not the number of male participants, report only the male percentage. If the study reports both statistics, report both.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488067455kq5ql",
+    "name": "Participant/Gender/Percentage Female",
+    "dataType": "Numeric",
+    "description": "If the study reports the percentage of female participants in the sample, report that percentage.\n• If the female percentage is not reported, even if the number of female participants is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the female percentage but not the number of female participants, report only the female percentage. If the study reports both statistics, report both.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488083947vi92v",
+    "name": "Participant/Size",
+    "dataType": "Numeric",
+    "description": "Sample size describes the number of participants in the intervention.\n• If a total sample size is reported, use the total sample size.\n• If the total sample size is not reported, but treatment/control groups or male/female participant numbers are reported, calculate the total sample size by adding the subgroup numbers.\n• If the study reports both a total sample size and a sample size after attrition (e.g., some participants' data were incomplete and were dropped from the analytical sample), use the sample size after attrition, as it represents the actual number of participants included in the analysis.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494881181678mvoo",
+    "name": "Participant/Control Size",
+    "dataType": "Numeric",
+    "description": "If the study reports the number of participants in the control group, report that number.\n• If the control group sample size is not directly reported, but the study reports the number of participants in the treatment group and the total sample size, calculate the control group sample size by subtracting the treatment group sample size from the total sample size.\n• If the information is not in the text, look for relevant information in the tables or figures.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488152392ecrsi",
+    "name": "Participant/Treatment Size",
+    "dataType": "Numeric",
+    "description": "If the study reports the number of participants in the treatment group, report that number.\n• If the treatment group sample size is not directly reported, but the study reports the number of participants in the control group and the total sample size, calculate the treatment group sample size by subtracting the control group sample size from the total sample size.\n• If the information is not in the text, look for relevant information in the tables or figures.\n• Sometimes the treatment group may not be described as the \"treatment group\". In this case, try to identify the comparator to the control group, which could be named after the specific intervention.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488166981fn5em",
+    "name": "Participant/Number Of Control Group",
+    "dataType": "Numeric",
+    "description": "The number of control groups.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488193359x47rv",
+    "name": "Participant/Number Of Treatment Group",
+    "dataType": "Numeric",
+    "description": "The number of treatment groups.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494882101505t6ji",
+    "name": "Participant/Race/Is Percentage",
+    "dataType": "Boolean",
+    "description": "Whether or not race statistics are in percentage.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494882326507c19j",
+    "name": "Participant/Race/Num White",
+    "dataType": "Numeric",
+    "description": "The number of white participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488247252dmbo0",
+    "name": "Participant/Race/Num Black",
+    "dataType": "Numeric",
+    "description": "The number of black participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "174948825572730f64",
+    "name": "Participant/Race/Num Asian",
+    "dataType": "Numeric",
+    "description": "The number of asian participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488262929av1i8",
+    "name": "Participant/Race/Num Hispanic",
+    "dataType": "Numeric",
+    "description": "The number of hispanic participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488290496f7b0g",
+    "name": "Participant/Race/Percentage White",
+    "dataType": "Numeric",
+    "description": "The percentage of white participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488301874wf5z8",
+    "name": "Participant/Race/Percentage Black",
+    "dataType": "Numeric",
+    "description": "The percentage of black participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488307439ziwdh",
+    "name": "Participant/Race/Percentage Asian",
+    "dataType": "Numeric",
+    "description": "The percentage of asian participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494883140855idif",
+    "name": "Participant/Race/Percentage Hispanic",
+    "dataType": "Numeric",
+    "description": "The percentage of hispanic participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488344879e4tx4",
+    "name": "Participant/Country",
+    "dataType": "Text",
+    "description": "The country of participants in the format of ISO Alpha-2 code.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "174948836130508iyi",
+    "name": "Participant/Grade Level",
+    "dataType": "Text",
+    "description": "The grade level of participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488376366pznp1",
+    "name": "Participant/Academic Subject",
+    "dataType": "Text",
+    "description": "Academic subject describes the academic subject in which the intervention was conducted (e.g., math, science, biology, communication, language, EFL reading, etc.).\nIf the specific skills that the intervention focuses on (e.g., executive function) are not an academic subject, or if the study does not describe the academic subject, report \"Not Found\".",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488396780kran6",
+    "name": "Participant/Is Control Group",
+    "dataType": "Boolean",
+    "description": "Whether or not participant is in control or comparison group.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488426257vvgh1",
+    "name": "Participant/Is Experiment Group",
+    "dataType": "Boolean",
+    "description": "Whether of not participant is in experiment or treatment group.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488436575312d3",
+    "name": "Participant/Extra Information",
+    "dataType": "Text",
+    "description": "The extra or additional information about participants.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488450510y6i59",
+    "name": "Intervention/Study Design",
+    "dataType": "Text",
+    "description": "There are four types of study designs: Cluster Quasi-Experimental Design, Cluster Randomized Control Trial, Student Quasi-Experimental Design, and Student Randomized Control Trial. The decision should be made in two steps:\n1. Level of assignment: Identify whether the unit of assignment is at the cluster level (e.g., classes, schools) or at the individual student level. If pre-existing groups or clusters are used, such as entire classes or schools, it is a cluster-level study.\nIf individual students are selected and assigned, it is a student-level study.\n2. Randomization of assignment: Determine whether the unit of assignment is assigned to treatment or control conditions at random (randomized control trial) or not at random (quasi-experimental). \nIf the units (clusters or students) are randomly assigned to treatment and control groups, it is a randomized control trial.\nIf the units (clusters or students) are not randomly assigned, or if the assignment method is not explicitly stated, it is a quasi-experimental design.\nFor example:\nIf a study uses pre-existing classes and does not mention random assignment of these classes to treatment and control conditions, the study design is a Cluster Quasi-Experimental Design.\nIf a study randomly selects clusters (e.g., schools) and then randomly assigns these clusters to treatment and control conditions, the study design is a Cluster Randomized Control Trial.\nIf a study randomly selects individual students and then randomly assigns them to treatment and control groups, the study design is a Student Randomized Control Trial.\nIt's important to note that some researchers may not follow the definitions of study designs provided here. The judgment should be based on the description of the unit of assignment and randomization in the study, not on what the researchers claim the study design to be. If the description of the unit of assignment or randomization is missing in the study, use the study design claimed by the researchers.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488521099n634u",
+    "name": "Intervention/Name",
+    "dataType": "Text",
+    "description": "The name of intervention, e.g., Mobile-Asisted Language Learning (MALL), CREativity in Science and Technology (CREST) programme, Web-Based Training With Peer Feedback, etc.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488536685481iw",
+    "name": "Intervention/Type",
+    "dataType": "Text",
+    "description": "The type of intervention or treatment, e.g., tutoring, software, curriculum, etc.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488546361oifba",
+    "name": "Intervention/Description",
+    "dataType": "Text",
+    "description": "The description of intervention.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488557700jkzpy",
+    "name": "Intervention/Duration",
+    "dataType": "Text",
+    "description": "The intervention duration should be the duration of the intervention itself. Consider the following scenarios:\n1. If the intervention was fully incorporated into a course, the intervention duration is the duration of the course.\n2. If the intervention was only incorporated into part of a course, the intervention duration should only be the duration of the sessions in which the intervention took place.\n3. If an intervention lasts for a semester and the authors mentioned the number of weeks in the semester, use the number of weeks. If not, use \"semester\" as the duration. If the intervention was a one-time/one-session intervention, use hours as the unit of time. If the duration is reported in minutes and the minutes cannot be converted into a conventional hour unit (whole hour or half an hour), use minutes (e.g., 50 mins); otherwise, report in hours (e.g, 1.5 hrs). If there is a delayed test or follow-up test, the time between the end of the intervention and the follow-up test should not be included in the intervention duration. For example, if the intervention lasts for 12 weeks, but a delayed test was conducted after 2 semesters, the intervention duration is still 12 weeks.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488571996fx511",
+    "name": "Intervention/Frequency",
+    "dataType": "Text",
+    "description": "Frequency should be the frequency of the intervention given a conventional time unit, e.g., weekly, biweekly, monthly.\n• If the intervention was incorporated into a class, the frequency of intervention should be the same as the frequency of the course (e.g., if the intervention was incorporated into a weekly/twice-a-week class, the intervention frequency is weekly/twice a week).\n• If the intervention was a one-time/one-session, report \"one time\".\n• If the study does not describe the frequency of intervention or describes it very vaguely, report \"Not Found\".",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488606264zussl",
+    "name": "Intervention/Dosage",
+    "dataType": "Text",
+    "description": "Dosage should be the length of intervention during each unit.\n• For example, if an intervention happens weekly and each session lasts for 90 minutes, the dosage should be 1.5 hrs/week.\n• If the minutes cannot be converted into a conventional hour unit (whole hour or half an hour), use minutes; otherwise, report in hours.\n• If the dosage of the intervention is not described or varies, report \"Not Found\" or \"varied\".",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488674716f6oja",
+    "name": "Intervention/Delivery Mode",
+    "dataType": "Text",
+    "description": "The delivery mode describes the mode of delivery of the intervention.\n• If the intervention was incorporated into a regular in-person course, the delivery mode should be \"in-person\".\n• If the intervention was fully online or incorporated into an online course, the delivery mode is \"online\".\n• The delivery mode can be a mix of in-person and online. For example, if the intervention was an online intervention but incorporated into an in-person course, the delivery mode should be \"in-person and online\".",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494886978855waya",
+    "name": "Intervention/Delivery Agent",
+    "dataType": "Text",
+    "description": "The delivery agent is the person/tool that delivers the intervention to students.\n• If a teacher/researcher is involved in guiding students during the intervention, the delivery agent is the teacher/researcher.\n• If no social agent is mentioned (e.g., the intervention is solely delivered by software without a teacher/researcher's guidance), the delivery agent should be the software or tool.",
+    "includeInExtraction": true
+  },
+  {
+    "id": "1749488716265x4mbf",
+    "name": "Intervention/Setting",
+    "dataType": "Text",
+    "description": "The setting describes the environment of the intervention.\n• If the intervention happens in a classroom, the setting is \"classroom\".\n• If the intervention is conducted fully online, the setting is \"online\".\n• The setting can be a mix of settings. For example, if an intervention has both classroom and home components, the setting should be \"classroom & at home\".\n• If the intervention is an out-of-class intervention, the setting should be \"out-of-class\".",
+    "includeInExtraction": true
+  },
+  {
+    "id": "17494887345583f8hi",
+    "name": "Intervention/Control Condition",
+    "dataType": "Text",
+    "description": "The control condition describes the instruction received by the control group students. For example, if the control group received business-as-usual instruction, report \"business-as-usual\".\nHowever, if the control group's business-as-usual instruction is different from traditional, in-person, teacher-centered instruction, note the difference in the output (e.g., \"business-as-usual flipped classroom\", \"business-as-usual online class\", \"business-as-usual self-directed learning\").",
+    "includeInExtraction": true
+  }
+]
