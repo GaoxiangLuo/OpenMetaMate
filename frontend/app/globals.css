@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 210 100% 22%; /* JHU Blue #002D72 */
+    --primary-foreground: 0 0% 100%; /* White */
+
+    --secondary: 205 100% 50%; /* JHU Accent Blue #0077D8 */
+    --secondary-foreground: 0 0% 100%; /* White */
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 170 45% 63%; /* JHU Accent Tealish #86C8BC */
+    --accent-foreground: 210 100% 22%; /* JHU Blue for text on tealish */
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 200 70% 64%; /* JHU Light Blue #68ACE5 */
+
+    --radius: 0.5rem;
+
+    /* JHU Colors */
+    --jhu-blue: 210 100% 22%; /* #002D72 */
+    --jhu-light-blue: 200 70% 64%; /* #68ACE5 */
+    --jhu-accent-1: 205 100% 42%; /* #0077D8 */
+    --jhu-accent-2: 208 73% 56%; /* #4E97E0 */
+    --jhu-accent-3: 170 45% 63%; /* #86C8BC */
+    --jhu-accent-4: 160 100% 26%; /* #008767 */
+    --jhu-accent-5: 147 40% 20%; /* #275E3D */
+    --jhu-accent-6: 83 40% 43%; /* #76A04C */
+    --jhu-accent-7: 270 20% 62%; /* #9E8FB0 */
+    --jhu-accent-8: 302 35% 23%; /* #51284F */
+    --jhu-accent-9: 309 30% 50%; /* #A45C98 */
+  }
+
+  .dark {
+    --background: 220 20% 10%; /* Darker blue-gray */
+    --foreground: 0 0% 98%;
+
+    --card: 220 20% 13%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 20% 13%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 200 70% 64%; /* JHU Light Blue #68ACE5 */
+    --primary-foreground: 210 100% 22%; /* JHU Blue */
+
+    --secondary: 208 73% 56%; /* JHU Lighter Accent Blue #4E97E0 */
+    --secondary-foreground: 210 100% 22%; /* JHU Blue */
+
+    --muted: 220 20% 18%;
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 170 45% 63%; /* JHU Accent Tealish #86C8BC */
+    --accent-foreground: 220 20% 10%; /* Dark background color for text on tealish */
+
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 20% 25%;
+    --input: 220 20% 25%;
+    --ring: 200 70% 64%; /* JHU Light Blue #68ACE5 */
+
+    /* JHU Colors remain the same, primary/secondary above are for general component theming */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
+  }
+}
+
+/* Custom selection styling for citation text */
+.citation-text::selection {
+  background-color: hsl(var(--jhu-blue)); /* JHU Blue background */
+  color: white;
+}
+
+.citation-text::-moz-selection {
+  background-color: hsl(var(--jhu-blue)); /* JHU Blue background */
+  color: white;
+}
+
+.dark .citation-text::selection {
+  background-color: hsl(var(--jhu-light-blue)); /* JHU Light Blue background */
+  color: hsl(var(--background)); /* Dark background color */
+}
+
+.dark .citation-text::-moz-selection {
+  background-color: hsl(var(--jhu-light-blue)); /* JHU Light Blue background */
+  color: hsl(var(--background)); /* Dark background color */
+}
+
+/* Custom scrollbar for a more stylish look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-100 dark:bg-slate-800;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: hsla(var(--jhu-light-blue), 0.7); /* jhu-light-blue with 70% opacity */
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: hsla(var(--jhu-blue), 0.7); /* jhu-blue with 70% opacity for dark mode */
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--jhu-light-blue)); /* Solid jhu-light-blue on hover */
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--jhu-blue)); /* Solid jhu-blue on hover for dark mode */
+}
