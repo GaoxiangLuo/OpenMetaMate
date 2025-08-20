@@ -109,9 +109,8 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       
       - name: Build Docker image
-        working-directory: backend
         run: |
-          docker build -t ${{ env.APP_NAME }}-backend:${{ github.sha }} .
+          docker build -f backend/Dockerfile -t ${{ env.APP_NAME }}-backend:${{ github.sha }} .
           docker tag ${{ env.APP_NAME }}-backend:${{ github.sha }} ${{ env.APP_NAME }}-backend:latest
       
       - name: Push to Lightsail

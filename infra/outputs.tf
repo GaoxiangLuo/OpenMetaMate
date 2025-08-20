@@ -21,12 +21,12 @@ output "frontend_custom_url" {
 # Backend URLs
 output "backend_url" {
   description = "Lightsail container service URL"
-  value       = "https://${aws_lightsail_container_service.backend.url}"
+  value       = aws_lightsail_container_service.backend.url
 }
 
 output "backend_api_url" {
   description = "API endpoint URL"
-  value       = var.domain_name != "" ? "https://api.${var.domain_name}" : "https://${aws_lightsail_container_service.backend.url}"
+  value       = var.domain_name != "" ? "https://api.${var.domain_name}" : aws_lightsail_container_service.backend.url
 }
 
 # CloudFront Distribution
@@ -131,7 +131,7 @@ output "deployment_commands" {
     
     1. Build frontend:
        cd frontend/
-       export NEXT_PUBLIC_API_URL=${var.domain_name != "" ? "https://api.${var.domain_name}" : "https://${aws_lightsail_container_service.backend.url}"}
+       export NEXT_PUBLIC_API_URL=${var.domain_name != "" ? "https://api.${var.domain_name}" : aws_lightsail_container_service.backend.url}
        pnpm install
        pnpm build
     
@@ -173,7 +173,7 @@ output "backend_env_vars" {
 output "frontend_env_vars" {
   description = "Environment variables for frontend build"
   value = {
-    NEXT_PUBLIC_API_URL = var.domain_name != "" ? "https://api.${var.domain_name}" : "https://${aws_lightsail_container_service.backend.url}"
+    NEXT_PUBLIC_API_URL = var.domain_name != "" ? "https://api.${var.domain_name}" : aws_lightsail_container_service.backend.url
   }
 }
 

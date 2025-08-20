@@ -224,9 +224,7 @@ deploy_frontend() {
     print_info "Building frontend..."
     pnpm build
     
-    # Export static files
-    print_info "Exporting static files..."
-    pnpm next export -o out
+    # Static files are automatically generated in 'out' directory due to output: "export" in next.config.mjs
     
     # Deploy to S3
     print_info "Deploying to S3..."

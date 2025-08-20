@@ -307,50 +307,9 @@ resource "aws_lightsail_container_service" "backend" {
   }
 }
 
-# Note: Actual container deployment requires the container image to be pushed first
-# This will be done via deployment script after infrastructure is created
-
-resource "aws_lightsail_container_service_deployment_version" "backend" {
-  service_name = aws_lightsail_container_service.backend.name
-  
-  container {
-    container_name = "api"
-    image         = ":metamate-backend.backend.1"
-    
-    ports = {
-      8000 = "HTTP"
-    }
-    
-    environment = {
-      PORT           = "8000"
-      CORS_ORIGINS   = var.domain_name != "" ? "https://${var.domain_name},https://www.${var.domain_name}" : "*"
-      SECRET_ARN     = aws_secretsmanager_secret.app_secrets.arn
-      AWS_REGION     = var.aws_region
-      ENVIRONMENT    = var.environment
-      LLM_API_KEY    = var.llm_api_key
-      LLM_API_URL    = var.llm_api_url
-      LLM_MODEL      = var.llm_model
-    }
-  }
-  
-  public_endpoint {
-    container_name = "api"
-    container_port = 8000
-    
-    health_check {
-      healthy_threshold   = 2
-      unhealthy_threshold = 2
-      timeout_seconds     = 5
-      interval_seconds    = 30
-      path               = "/health"
-      success_codes      = "200-299"
-    }
-  }
-  
-  lifecycle {
-    ignore_changes = [container] # Allow container updates without Terraform
-  }
-}
+# Note: Container deployments are handled by GitHub Actions CI/CD pipeline
+# The container service is created here, but deployments are managed externally
+# This allows for automated deployments with proper image versioning
 
 # ============================================
 # IAM ROLE FOR LIGHTSAIL (Secrets Access)
