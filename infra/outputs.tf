@@ -72,7 +72,8 @@ output "secrets_arn" {
 # DNS Configuration Instructions
 output "dns_configuration" {
   description = "DNS configuration instructions for CloudFlare"
-  value = var.domain_name != "" ? <<-EOT
+  value = var.domain_name != "" ? (
+    <<-EOT
     
     ===== CloudFlare DNS Configuration =====
     
@@ -97,7 +98,8 @@ output "dns_configuration" {
     4. ACM Certificate Validation (if using CloudFront):
        ${var.enable_cdn ? join("\n       ", [for record in aws_acm_certificate.cert[0].domain_validation_options : "Type: ${record.resource_record_type}, Name: ${record.resource_record_name}, Value: ${record.resource_record_value}"]) : "N/A"}
     
-  EOT : "N/A - No custom domain configured"
+    EOT
+  ) : "N/A - No custom domain configured"
 }
 
 # Deployment Commands

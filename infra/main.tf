@@ -17,11 +17,11 @@ terraform {
   }
   
   # Optional: Store state in S3 (uncomment after creating bucket)
-  # backend "s3" {
-  #   bucket = "metamate-terraform-state"
-  #   key    = "prod/terraform.tfstate"
-  #   region = "us-east-2"
-  # }
+  backend "s3" {
+    bucket = "metamate-terraform-state"
+    key    = "prod/terraform.tfstate"
+    region = "us-east-1"
+  }
 }
 
 # ============================================
@@ -37,8 +37,8 @@ provider "aws" {
 }
 
 provider "aws" {
-  alias  = "us_east_2"
-  region = "us-east-2" # Required for CloudFront
+  alias  = "us_east_1"
+  region = "us-east-1" # Required for CloudFront ACM certificates
 }
 
 # ============================================
@@ -140,12 +140,29 @@ resource "aws_s3_bucket" "logs" {
   }
 }
 
+resource "aws_s3_bucket_ownership_controls" "logs" {
+  bucket = aws_s3_bucket.logs.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "logs" {
+  bucket = aws_s3_bucket.logs.id
+  acl    = "log-delivery-write"
+  
+  depends_on = [aws_s3_bucket_ownership_controls.logs]
+}
+
 resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   bucket = aws_s3_bucket.logs.id
   
   rule {
     id     = "delete-old-logs"
     status = "Enabled"
+    
+    filter {} # Apply to all objects
     
     expiration {
       days = 30
@@ -242,9 +259,9 @@ resource "aws_cloudfront_distribution" "frontend" {
     Name = "${var.app_name}-cdn"
   }
   
-  depends_on = [
-    aws_acm_certificate_validation.cert
-  ]
+  # depends_on = [
+  #   aws_acm_certificate_validation.cert
+  # ]
 }
 
 # ============================================
@@ -253,7 +270,7 @@ resource "aws_cloudfront_distribution" "frontend" {
 
 resource "aws_acm_certificate" "cert" {
   count    = var.domain_name != "" ? 1 : 0
-  provider = aws.us_east_2 # CloudFront requires cert in us-east-2
+  provider = aws.us_east_1 # CloudFront requires cert in us-east-1
   
   domain_name               = var.domain_name
   subject_alternative_names = ["www.${var.domain_name}", "api.${var.domain_name}"]
@@ -268,12 +285,13 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
-resource "aws_acm_certificate_validation" "cert" {
-  count                   = var.domain_name != "" ? 1 : 0
-  provider                = aws.us_east_2
-  certificate_arn         = aws_acm_certificate.cert[0].arn
-  validation_record_fqdns = [for record in aws_acm_certificate.cert[0].domain_validation_options : record.resource_record_value]
-}
+# Temporarily commented out - DNS validation records added manually
+# resource "aws_acm_certificate_validation" "cert" {
+#   count                   = var.domain_name != "" ? 1 : 0
+#   provider                = aws.us_east_1
+#   certificate_arn         = aws_acm_certificate.cert[0].arn
+#   validation_record_fqdns = [for record in aws_acm_certificate.cert[0].domain_validation_options : record.resource_record_value]
+# }
 
 # ============================================
 # LIGHTSAIL CONTAINER SERVICE
@@ -297,7 +315,7 @@ resource "aws_lightsail_container_service_deployment_version" "backend" {
   
   container {
     container_name = "api"
-    image         = "${var.app_name}-backend:latest"
+    image         = ":metamate-backend.backend.1"
     
     ports = {
       8000 = "HTTP"
@@ -309,6 +327,9 @@ resource "aws_lightsail_container_service_deployment_version" "backend" {
       SECRET_ARN     = aws_secretsmanager_secret.app_secrets.arn
       AWS_REGION     = var.aws_region
       ENVIRONMENT    = var.environment
+      LLM_API_KEY    = var.llm_api_key
+      LLM_API_URL    = var.llm_api_url
+      LLM_MODEL      = var.llm_model
     }
   }
   
@@ -327,7 +348,7 @@ resource "aws_lightsail_container_service_deployment_version" "backend" {
   }
   
   lifecycle {
-    ignore_changes = [container[0].image] # Allow image updates without Terraform
+    ignore_changes = [container] # Allow container updates without Terraform
   }
 }
 

@@ -15,7 +15,7 @@ on:
           - staging
 
 env:
-  AWS_REGION: us-east-2
+  AWS_REGION: us-east-1
   APP_NAME: metamate
 
 jobs:
@@ -150,7 +150,11 @@ jobs:
               "environment": {
                 "PORT": "8000",
                 "AWS_REGION": "${{ env.AWS_REGION }}",
-                "ENVIRONMENT": "${{ github.event.inputs.environment || 'prod' }}"
+                "ENVIRONMENT": "${{ github.event.inputs.environment || 'prod' }}",
+                "LLM_API_KEY": "${{ secrets.LLM_API_KEY }}",
+                "LLM_API_URL": "${{ secrets.LLM_API_URL }}",
+                "LLM_MODEL": "${{ secrets.LLM_MODEL }}",
+                "CORS_ORIGINS": "https://${{ secrets.CUSTOM_DOMAIN }},https://www.${{ secrets.CUSTOM_DOMAIN }}"
               }
             }
           }
@@ -257,7 +261,6 @@ jobs:
         working-directory: frontend
         run: |
           pnpm build
-          pnpm next export -o out
       
       - name: Deploy to S3
         working-directory: frontend
@@ -274,7 +277,7 @@ jobs:
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "*.html" \
             --exclude "_next/data/*" \
-            --exclude "_next/static/chunks/pages/*"
+            --exclude "_next/static/chunks/app/*"
           
           # Sync HTML files with no-cache
           aws s3 sync out/ s3://${BUCKET_NAME}/ \
@@ -283,10 +286,10 @@ jobs:
             --exclude "*" \
             --include "*.html" \
             --include "_next/data/*" \
-            --include "_next/static/chunks/pages/*"
+            --include "_next/static/chunks/app/*"
       
       - name: Invalidate CloudFront
-        if: secrets.CLOUDFRONT_DISTRIBUTION_ID != ''
+        if: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID != '' }}
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
