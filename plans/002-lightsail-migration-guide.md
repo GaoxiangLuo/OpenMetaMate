@@ -34,7 +34,7 @@ aws configure
 # You'll need:
 # - AWS Access Key ID
 # - AWS Secret Access Key
-# - Default region: us-east-1
+# - Default region: us-east-2
 # - Default output: json
 ```
 
@@ -43,7 +43,7 @@ aws configure
 # Create S3 bucket for Terraform state
 aws s3api create-bucket \
   --bucket metamate-terraform-state \
-  --region us-east-1
+  --region us-east-2
 
 # Enable versioning
 aws s3api put-bucket-versioning \
@@ -79,7 +79,7 @@ domain_name = "metamate.online"
 enable_cdn  = true
 
 # AWS Configuration
-aws_region  = "us-east-1"
+aws_region  = "us-east-2"
 environment = "prod"
 
 # Container sizing (recommended)
@@ -97,7 +97,7 @@ Edit `infra/main.tf` and uncomment lines 20-24:
 backend "s3" {
   bucket = "metamate-terraform-state"
   key    = "prod/terraform.tfstate"
-  region = "us-east-1"
+  region = "us-east-2"
 }
 ```
 
@@ -161,7 +161,7 @@ SERVICE_NAME=$(terraform output -raw container_service_name)
 
 # Push image to Lightsail
 aws lightsail push-container-image \
-  --region us-east-1 \
+  --region us-east-2 \
   --service-name ${SERVICE_NAME} \
   --label backend \
   --image metamate-backend:latest
@@ -171,7 +171,7 @@ aws lightsail push-container-image \
 ```bash
 # Get the pushed image name
 IMAGE=$(aws lightsail get-container-images \
-  --region us-east-1 \
+  --region us-east-2 \
   --service-name ${SERVICE_NAME} \
   --query 'containerImages[0].image' \
   --output text)
@@ -186,7 +186,7 @@ cat > /tmp/containers.json <<EOF
     },
     "environment": {
       "PORT": "8000",
-      "AWS_REGION": "us-east-1",
+      "AWS_REGION": "us-east-2",
       "ENVIRONMENT": "prod"
     }
   }
@@ -211,7 +211,7 @@ EOF
 
 # Deploy the container
 aws lightsail create-container-service-deployment \
-  --region us-east-1 \
+  --region us-east-2 \
   --service-name ${SERVICE_NAME} \
   --containers file:///tmp/containers.json \
   --public-endpoint file:///tmp/endpoint.json
@@ -221,7 +221,7 @@ aws lightsail create-container-service-deployment \
 ```bash
 # Check deployment status (wait until READY)
 aws lightsail get-container-services \
-  --region us-east-1 \
+  --region us-east-2 \
   --service-name ${SERVICE_NAME} \
   --query 'containerServices[0].state' \
   --output text

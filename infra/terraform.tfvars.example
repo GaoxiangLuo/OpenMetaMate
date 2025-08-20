@@ -15,7 +15,7 @@ domain_name = "metamate.online"  # Your domain from CloudFlare
 enable_cdn  = true               # Enable CloudFront CDN (recommended)
 
 # AWS Configuration
-aws_region  = "us-east-1"  # Keep us-east-1 for best compatibility
+aws_region  = "us-east-2"  # Keep us-east-2 for best compatibility
 environment = "prod"        # prod, staging, or dev
 
 # Container sizing (monthly costs)

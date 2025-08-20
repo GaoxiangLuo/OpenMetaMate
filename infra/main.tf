@@ -20,7 +20,7 @@ terraform {
   # backend "s3" {
   #   bucket = "metamate-terraform-state"
   #   key    = "prod/terraform.tfstate"
-  #   region = "us-east-1"
+  #   region = "us-east-2"
   # }
 }
 
@@ -37,8 +37,8 @@ provider "aws" {
 }
 
 provider "aws" {
-  alias  = "us_east_1"
-  region = "us-east-1" # Required for CloudFront
+  alias  = "us_east_2"
+  region = "us-east-2" # Required for CloudFront
 }
 
 # ============================================
@@ -253,7 +253,7 @@ resource "aws_cloudfront_distribution" "frontend" {
 
 resource "aws_acm_certificate" "cert" {
   count    = var.domain_name != "" ? 1 : 0
-  provider = aws.us_east_1 # CloudFront requires cert in us-east-1
+  provider = aws.us_east_2 # CloudFront requires cert in us-east-2
   
   domain_name               = var.domain_name
   subject_alternative_names = ["www.${var.domain_name}", "api.${var.domain_name}"]
@@ -270,7 +270,7 @@ resource "aws_acm_certificate" "cert" {
 
 resource "aws_acm_certificate_validation" "cert" {
   count                   = var.domain_name != "" ? 1 : 0
-  provider                = aws.us_east_1
+  provider                = aws.us_east_2
   certificate_arn         = aws_acm_certificate.cert[0].arn
   validation_record_fqdns = [for record in aws_acm_certificate.cert[0].domain_validation_options : record.resource_record_value]
 }

@@ -122,7 +122,7 @@ After deployment, configure your CloudFlare DNS:
 3. **API Subdomain**
    - Type: CNAME
    - Name: api
-   - Target: `<lightsail-container>.us-east-1.cs.amazonlightsail.com`
+   - Target: `<lightsail-container>.us-east-2.cs.amazonlightsail.com`
    - Proxy: ON
 
 ## Deployment Script Usage
