@@ -196,8 +196,8 @@ jobs:
               --query 'containerServices[0].state' \
               --output text)
             
-            if [ "$STATE" == "READY" ]; then
-              echo "Deployment successful"
+            if [ "$STATE" == "READY" ] || [ "$STATE" == "RUNNING" ]; then
+              echo "Deployment successful (State: $STATE)"
               exit 0
             elif [ "$STATE" == "DEPLOYING" ]; then
               echo "Still deploying... (attempt $i/60)"
