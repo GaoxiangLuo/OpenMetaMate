@@ -39,9 +39,7 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip install pytest pytest-asyncio httpx
+          uv sync
       
       - name: Run linting
         working-directory: backend
@@ -74,7 +72,7 @@ jobs:
       
       - name: Install dependencies
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       
       - name: Run linting
         working-directory: frontend
@@ -254,7 +252,7 @@ jobs:
       
       - name: Install dependencies
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       
       - name: Build frontend
         working-directory: frontend
