@@ -1,0 +1,48 @@
+# ============================================
+# TERRAFORM VARIABLES - MetaMate
+# Copy this to terraform.tfvars and update values
+# ============================================
+
+# Required: Your LLM API Key
+llm_api_key = "sk-proj-YOUR_API_KEY_HERE"
+
+# Optional: LLM Configuration
+llm_api_url = "https://api.openai.com/v1"  # Or use Anthropic, OpenRouter, etc.
+llm_model   = "gpt-4o"                     # Or claude-3-opus, etc.
+
+# Your domain configuration
+domain_name = "metamate.online"  # Your domain from CloudFlare
+enable_cdn  = true               # Enable CloudFront CDN (recommended)
+
+# AWS Configuration
+aws_region  = "us-east-1"  # Keep us-east-1 for best compatibility
+environment = "prod"        # prod, staging, or dev
+
+# Container sizing (monthly costs)
+# - nano: 0.5GB RAM, 0.25 vCPU ($7/month)
+# - micro: 1GB RAM, 0.5 vCPU ($10/month)  
+# - small: 2GB RAM, 1 vCPU ($25/month) <- Recommended
+# - medium: 4GB RAM, 2 vCPU ($50/month)
+# - large: 8GB RAM, 4 vCPU ($100/month)
+container_service_power = "small"
+container_service_scale = 1  # Number of instances
+
+# Budget alerts (optional)
+budget_amount = 30                          # Monthly budget in USD
+budget_email  = "your-email@example.com"   # Email for budget alerts
+
+# CORS Configuration (optional)
+# Leave empty to use domain_name, or specify custom origins
+allowed_origins = []  # e.g., ["https://app.example.com"]
+
+# Monitoring (optional)
+enable_monitoring = true
+enable_logging    = true
+
+# Tags for all resources (optional)
+tags = {
+  Project     = "MetaMate"
+  ManagedBy   = "Terraform"
+  Environment = "Production"
+  Owner       = "Your Name"
+}

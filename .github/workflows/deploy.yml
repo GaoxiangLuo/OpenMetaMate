@@ -1,0 +1,311 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'prod'
+        type: choice
+        options:
+          - prod
+          - staging
+
+env:
+  AWS_REGION: us-east-1
+  APP_NAME: metamate
+
+jobs:
+  # Test Backend
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+          uv pip install pytest pytest-asyncio httpx
+      
+      - name: Run linting
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      
+      # Uncomment when tests are added
+      # - name: Run tests
+      #   working-directory: backend
+      #   run: uv run pytest
+
+  # Test Frontend
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run linting
+        working-directory: frontend
+        run: |
+          pnpm lint
+          pnpm prettier:check
+      
+      - name: Type check
+        working-directory: frontend
+        run: pnpm typecheck
+      
+      # Uncomment when tests are added
+      # - name: Run tests
+      #   working-directory: frontend
+      #   run: pnpm test
+
+  # Deploy Backend
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: test-backend
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Build Docker image
+        working-directory: backend
+        run: |
+          docker build -t ${{ env.APP_NAME }}-backend:${{ github.sha }} .
+          docker tag ${{ env.APP_NAME }}-backend:${{ github.sha }} ${{ env.APP_NAME }}-backend:latest
+      
+      - name: Push to Lightsail
+        run: |
+          # Get container service name
+          SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          
+          # Push image
+          aws lightsail push-container-image \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --label backend-${{ github.sha }} \
+            --image ${{ env.APP_NAME }}-backend:${{ github.sha }}
+          
+          # Get the pushed image name
+          IMAGE=$(aws lightsail get-container-images \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --query 'containerImages[0].image' \
+            --output text)
+          
+          echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+      
+      - name: Deploy container
+        run: |
+          SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          
+          # Create container configuration
+          cat > containers.json <<EOF
+          {
+            "api": {
+              "image": "${{ env.IMAGE }}",
+              "ports": {
+                "8000": "HTTP"
+              },
+              "environment": {
+                "PORT": "8000",
+                "AWS_REGION": "${{ env.AWS_REGION }}",
+                "ENVIRONMENT": "${{ github.event.inputs.environment || 'prod' }}"
+              }
+            }
+          }
+          EOF
+          
+          # Create endpoint configuration
+          cat > endpoint.json <<EOF
+          {
+            "containerName": "api",
+            "containerPort": 8000,
+            "healthCheck": {
+              "healthyThreshold": 2,
+              "unhealthyThreshold": 2,
+              "timeoutSeconds": 5,
+              "intervalSeconds": 30,
+              "path": "/health",
+              "successCodes": "200-299"
+            }
+          }
+          EOF
+          
+          # Deploy
+          aws lightsail create-container-service-deployment \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --containers file://containers.json \
+            --public-endpoint file://endpoint.json
+      
+      - name: Wait for deployment
+        run: |
+          SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          
+          for i in {1..60}; do
+            STATE=$(aws lightsail get-container-services \
+              --region ${{ env.AWS_REGION }} \
+              --service-name ${SERVICE_NAME} \
+              --query 'containerServices[0].state' \
+              --output text)
+            
+            if [ "$STATE" == "READY" ]; then
+              echo "Deployment successful"
+              exit 0
+            elif [ "$STATE" == "DEPLOYING" ]; then
+              echo "Still deploying... (attempt $i/60)"
+              sleep 10
+            else
+              echo "Deployment failed. State: $STATE"
+              exit 1
+            fi
+          done
+          
+          echo "Deployment timeout"
+          exit 1
+
+  # Deploy Frontend
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [test-frontend, deploy-backend]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      
+      - name: Get backend URL
+        run: |
+          SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          BACKEND_URL=$(aws lightsail get-container-services \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --query 'containerServices[0].url' \
+            --output text)
+          
+          # Use custom domain if available
+          if [ "${{ secrets.CUSTOM_DOMAIN }}" != "" ]; then
+            echo "NEXT_PUBLIC_API_URL=https://api.${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_ENV
+          else
+            echo "NEXT_PUBLIC_API_URL=https://${BACKEND_URL}" >> $GITHUB_ENV
+          fi
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm build
+          pnpm next export -o out
+      
+      - name: Deploy to S3
+        working-directory: frontend
+        run: |
+          # Get bucket name from secrets or construct it
+          BUCKET_NAME="${{ secrets.FRONTEND_BUCKET_NAME }}"
+          if [ -z "$BUCKET_NAME" ]; then
+            BUCKET_NAME="${{ env.APP_NAME }}-frontend-${{ secrets.BUCKET_SUFFIX }}"
+          fi
+          
+          # Sync with cache headers for assets
+          aws s3 sync out/ s3://${BUCKET_NAME}/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "*.html" \
+            --exclude "_next/data/*" \
+            --exclude "_next/static/chunks/pages/*"
+          
+          # Sync HTML files with no-cache
+          aws s3 sync out/ s3://${BUCKET_NAME}/ \
+            --delete \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --exclude "*" \
+            --include "*.html" \
+            --include "_next/data/*" \
+            --include "_next/static/chunks/pages/*"
+      
+      - name: Invalidate CloudFront
+        if: secrets.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  # Notify deployment status
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+    
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.deploy-backend.result }}" == "success" ] && [ "${{ needs.deploy-frontend.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            # Add Slack/Discord/Email notification here
+          else
+            echo "❌ Deployment failed!"
+            # Add Slack/Discord/Email notification here
+          fi
