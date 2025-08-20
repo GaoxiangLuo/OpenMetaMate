@@ -246,13 +246,13 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --service-name ${SERVICE_NAME} \
             --query 'containerServices[0].url' \
-            --output text)
+            --output text | sed 's:/*$::')
           
           # Use custom domain if available
           if [ "${{ secrets.CUSTOM_DOMAIN }}" != "" ]; then
             echo "NEXT_PUBLIC_API_URL=https://api.${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_ENV
           else
-            echo "NEXT_PUBLIC_API_URL=https://${BACKEND_URL}" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_URL=${BACKEND_URL}" >> $GITHUB_ENV
           fi
       
       - name: Install dependencies
@@ -261,7 +261,10 @@ jobs:
       
       - name: Build frontend
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
         run: |
+          echo "Building with API URL: $NEXT_PUBLIC_API_URL"
           pnpm build
       
       - name: Deploy to S3

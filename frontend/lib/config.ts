@@ -2,12 +2,8 @@
 const isDevelopment = process.env.NODE_ENV === "development"
 
 export const config = {
-  // API endpoint from Lightsail container or local development
-  apiUrl:
-    process.env.NEXT_PUBLIC_API_URL ||
-    (isDevelopment
-      ? "http://localhost:8000"
-      : "https://metamate-backend.abbcgm4kk31mw.us-east-1.cs.amazonlightsail.com"),
+  // API endpoint from environment or local development fallback
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
 
   // File upload limits
   MAX_FILE_SIZE_MB: 10,
