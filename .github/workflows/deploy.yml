@@ -239,7 +239,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
       
-      - name: Get backend URL
+      - name: Get backend URL and build frontend
         run: |
           SERVICE_NAME="${{ env.APP_NAME }}-backend"
           BACKEND_URL=$(aws lightsail get-container-services \
@@ -250,21 +250,21 @@ jobs:
           
           # Use custom domain if available
           if [ "${{ secrets.CUSTOM_DOMAIN }}" != "" ]; then
-            echo "NEXT_PUBLIC_API_URL=https://api.${{ secrets.CUSTOM_DOMAIN }}" >> $GITHUB_ENV
+            API_URL="https://api.${{ secrets.CUSTOM_DOMAIN }}"
           else
-            echo "NEXT_PUBLIC_API_URL=${BACKEND_URL}" >> $GITHUB_ENV
+            API_URL="${BACKEND_URL}"
           fi
-      
-      - name: Install dependencies
-        working-directory: frontend
-        run: pnpm install --no-frozen-lockfile
-      
-      - name: Build frontend
-        working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
-        run: |
-          echo "Building with API URL: $NEXT_PUBLIC_API_URL"
+          
+          echo "Backend URL: ${BACKEND_URL}"
+          echo "Using API URL: ${API_URL}"
+          
+          # Install dependencies
+          cd frontend
+          pnpm install --no-frozen-lockfile
+          
+          # Build with the correct API URL
+          export NEXT_PUBLIC_API_URL="${API_URL}"
+          echo "Building frontend with NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
           pnpm build
       
       - name: Deploy to S3
