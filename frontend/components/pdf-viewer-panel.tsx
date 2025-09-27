@@ -6,11 +6,13 @@ import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, FileWarning } from "lucide-react"
 import type { Citation } from "@/lib/types"
+import { extractLabelCandidates } from "@/lib/utils"
 
 import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 
-if (typeof window !== "undefined") {
+// Initialize PDF.js worker once per module load
+if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
   const workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)
   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc.toString()
 }
@@ -25,70 +27,6 @@ interface PdfViewerPanelProps {
 const ZOOM_STEP = 0.2
 const MIN_ZOOM = 0.5
 const MAX_ZOOM = 2.4
-
-const ROMAN_PATTERN = /^[ivxlcdm]+$/i
-const ROMAN_VALUES: Record<string, number> = {
-  I: 1,
-  V: 5,
-  X: 10,
-  L: 50,
-  C: 100,
-  D: 500,
-  M: 1000,
-}
-
-function romanToInt(value: string): number | null {
-  if (!value) return null
-
-  let total = 0
-  let previous = 0
-
-  for (let i = value.length - 1; i >= 0; i -= 1) {
-    const current = ROMAN_VALUES[value[i]]
-    if (!current) {
-      return null
-    }
-
-    if (current < previous) {
-      total -= current
-    } else {
-      total += current
-      previous = current
-    }
-  }
-
-  return total
-}
-
-function extractLabelCandidates(label: string | null | undefined): number[] {
-  if (!label) return []
-
-  const candidates = new Set<number>()
-  const digitMatches = label.match(/\d+/g)
-
-  if (digitMatches) {
-    digitMatches.forEach((match) => {
-      const parsed = Number.parseInt(match, 10)
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        candidates.add(parsed)
-      }
-    })
-  }
-
-  const romanMatches = label.match(/\b[ivxlcdm]+\b/gi)
-  if (romanMatches) {
-    romanMatches.forEach((match) => {
-      if (ROMAN_PATTERN.test(match)) {
-        const parsed = romanToInt(match.toUpperCase())
-        if (parsed && parsed > 0) {
-          candidates.add(parsed)
-        }
-      }
-    })
-  }
-
-  return Array.from(candidates)
-}
 
 export default function PdfViewerPanel({ fileUrl, fileName, citations, activeIndex }: PdfViewerPanelProps) {
   const [numPages, setNumPages] = useState<number>(0)
