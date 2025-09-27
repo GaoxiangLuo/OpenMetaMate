@@ -24,7 +24,9 @@ import {
 } from "lucide-react"
 import CodingSchemeEditor from "@/components/coding-scheme-editor"
 import ExtractionItemDisplay from "@/components/extraction-item-display"
-import AuthorInfoModal from "@/components/author-info-modal" // New modal
+import AuthorInfoModal from "@/components/author-info-modal"
+import PdfViewerPanel from "@/components/pdf-viewer-panel"
+import ResizablePanelContainer from "@/components/resizable-panel-container"
 import type {
   CodingSchemeItem,
   ChatMessage,
@@ -32,6 +34,7 @@ import type {
   ProcessedFileResult,
   ExtractionResult,
   ExtractionResultItem,
+  Citation,
 } from "@/lib/types"
 import config from "@/lib/config"
 
@@ -39,6 +42,8 @@ import config from "@/lib/config"
 import defaultCodingSchemeData from "@assets/codebook/default.json"
 
 const defaultCodingScheme: CodingSchemeItem[] = defaultCodingSchemeData as CodingSchemeItem[]
+
+const PDF_SOURCE_LIMIT = 50
 
 // Initialize without timestamp to avoid hydration issues
 const getInitialMessages = (): ChatMessage[] => [
@@ -62,8 +67,7 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
     entry.codingSchemeUsed.forEach((schemeItem: CodingSchemeItem) => {
       if (schemeItem.includeInExtraction) {
         // Only consider items that were marked for inclusion
-        allPossibleHeaders.add(`${schemeItem.name}_value`)
-        allPossibleHeaders.add(`${schemeItem.name}_confidence`)
+        allPossibleHeaders.add(schemeItem.name)
       }
     })
   })
@@ -71,12 +75,9 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
   const sortedHeaders = Array.from(allPossibleHeaders).sort((a, b) => {
     if (a === "FileName") return -1 // FileName always first
     if (b === "FileName") return 1
-    const aBase = a.replace(/_value|_confidence/, "")
-    const bBase = b.replace(/_value|_confidence/, "")
-    if (aBase < bBase) return -1
-    if (aBase > bBase) return 1
-    if (a.endsWith("_value")) return -1
-    return 1
+    if (a < b) return -1
+    if (a > b) return 1
+    return 0
   })
 
   history.forEach((entry) => {
@@ -85,10 +86,7 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
     entry.codingSchemeUsed.forEach((schemeItem) => {
       if (schemeItem.includeInExtraction && entry.data[schemeItem.name]) {
         const resultItem = entry.data[schemeItem.name]
-        row[`${schemeItem.name}_value`] = Array.isArray(resultItem.value)
-          ? resultItem.value.join("; ")
-          : resultItem.value
-        row[`${schemeItem.name}_confidence`] = resultItem.confidence
+        row[schemeItem.name] = Array.isArray(resultItem.value) ? resultItem.value.join("; ") : resultItem.value
       }
     })
     allRows.push(row)
@@ -159,11 +157,18 @@ const callExtractionAPI = async (file: File, scheme: CodingSchemeItem[]): Promis
     const resultItem = item as ExtractionResultItem
     extractedData[key] = {
       value: resultItem.value,
-      confidence: resultItem.confidence,
+      confidence: resultItem.confidence ?? null,
+      answerType: resultItem.answerType,
+      citations: (resultItem.citations ?? []).map((citation) => ({
+        pageNumber: citation.pageNumber,
+        type: citation.type,
+        reasoning: citation.reasoning ?? null,
+      })),
+      reasoning: resultItem.reasoning ?? null,
     }
 
     // Check if any value is not "Not Found"
-    if (resultItem.value !== "Not Found") {
+    if (resultItem.answerType !== "Not Found") {
       allNotFound = false
     }
     hasData = true
@@ -188,6 +193,15 @@ export default function MetaMateChatPage() {
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
+  const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
+  const pdfSourcesRef = useRef<Record<string, string>>({})
+  const pdfSourceOrderRef = useRef<string[]>([])
+  const [viewerSelection, setViewerSelection] = useState<{
+    pdfKey?: string
+    fileName?: string
+    citations: Citation[]
+    activeIndex: number
+  } | null>(null)
   const chatAreaRef = useRef<HTMLDivElement>(null)
 
   // Initialize messages on client side only to avoid hydration issues
@@ -199,6 +213,24 @@ export default function MetaMateChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  useEffect(() => {
+    pdfSourcesRef.current = pdfSources
+    setViewerSelection((prev) => {
+      if (!prev) return prev
+      if (!pdfSources[prev.pdfKey]) {
+        return null
+      }
+      return prev
+    })
+  }, [pdfSources])
+
+  useEffect(
+    () => () => {
+      Object.values(pdfSourcesRef.current).forEach((url) => URL.revokeObjectURL(url))
+    },
+    [],
+  )
+
   // Scrolling function for manual triggers
   const scrollToBottom = useCallback(() => {
     if (chatAreaRef.current) {
@@ -207,6 +239,40 @@ export default function MetaMateChatPage() {
         behavior: "smooth",
       })
     }
+  }, [])
+
+  const registerPdfSource = useCallback((key: string, file: File) => {
+    const nextUrl = URL.createObjectURL(file)
+    setPdfSources((prev) => {
+      const previousUrl = prev[key]
+      if (previousUrl) {
+        URL.revokeObjectURL(previousUrl)
+      }
+
+      const updated = { ...prev, [key]: nextUrl }
+      const order = pdfSourceOrderRef.current
+      const existingIndex = order.indexOf(key)
+      if (existingIndex !== -1) {
+        order.splice(existingIndex, 1)
+      }
+      order.push(key)
+
+      while (order.length > PDF_SOURCE_LIMIT) {
+        const oldestKey = order.shift()
+        if (!oldestKey) {
+          break
+        }
+        const urlToRemove = updated[oldestKey]
+        if (urlToRemove) {
+          URL.revokeObjectURL(urlToRemove)
+          delete updated[oldestKey]
+        }
+      }
+
+      pdfSourcesRef.current = updated
+      return updated
+    })
+    return nextUrl
   }, [])
 
   const addMessage = useCallback((message: Omit<ChatMessage, "id" | "timestamp"> & { id?: string }) => {
@@ -223,6 +289,30 @@ export default function MetaMateChatPage() {
   const updateMessage = useCallback((id: string, updates: Partial<ChatMessage>) => {
     setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, ...updates } : msg)))
   }, [])
+
+  const selectPdfForViewer = useCallback(
+    (fileKey: string | undefined, fileName: string | undefined, citations: Citation[], index: number) => {
+      if (!fileKey) {
+        addMessage({ type: "error", content: "PDF source unavailable for this extraction." })
+        return
+      }
+
+      const pdfUrl = pdfSourcesRef.current[fileKey]
+      if (!pdfUrl) {
+        addMessage({ type: "error", content: "PDF preview is not available. Please re-upload the document." })
+        return
+      }
+
+      const safeIndex = citations.length > 0 ? Math.min(Math.max(index, 0), citations.length - 1) : 0
+      setViewerSelection({
+        pdfKey: fileKey,
+        fileName: fileName ?? "PDF Document",
+        citations,
+        activeIndex: safeIndex,
+      })
+    },
+    [addMessage],
+  )
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -260,7 +350,18 @@ export default function MetaMateChatPage() {
   }
 
   const processSingleFile = async (file: File, currentScheme: CodingSchemeItem[]): Promise<ProcessedFileResult> => {
-    const fileMessageId = `file_msg_${Date.now().toString()}_${Math.random().toString(36).substring(2, 9)}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, "")}`
+    const uniqueSuffix = `${Date.now().toString()}_${Math.random().toString(36).substring(2, 9)}`
+    const fileMessageId = `file_msg_${uniqueSuffix}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, "")}`
+    const fileKey = `pdf_${uniqueSuffix}`
+
+    registerPdfSource(fileKey, file)
+
+    setViewerSelection({
+      pdfKey: fileKey,
+      fileName: file.name,
+      citations: [],
+      activeIndex: 0,
+    })
 
     addMessage({
       id: fileMessageId,
@@ -279,8 +380,16 @@ export default function MetaMateChatPage() {
         fileSpecificMessage: `Extraction successful.`,
         data: extractedData,
         type: "extraction-result",
+        pdfKey: fileKey,
       })
-      return { fileName: file.name, status: "success", data: extractedData }
+
+      const firstGroundedCitations =
+        Object.values(extractedData).find((item) => item.citations && item.citations.length > 0)?.citations ?? []
+
+      if (firstGroundedCitations.length > 0) {
+        selectPdfForViewer(fileKey, file.name, firstGroundedCitations, 0)
+      }
+      return { fileName: file.name, status: "success", data: extractedData, pdfKey: fileKey }
     } catch (error) {
       const errorMessage = (error as Error).message
       updateMessage(fileMessageId, {
@@ -320,6 +429,7 @@ export default function MetaMateChatPage() {
           data: result.data,
           timestamp: new Date(),
           codingSchemeUsed: schemeForThisBatch, // Store the scheme used for this specific extraction
+          pdfKey: result.pdfKey,
         }
         setExtractionHistory((prev) => [newHistoryEntry, ...prev.slice(0, 19)])
       }
@@ -407,7 +517,16 @@ export default function MetaMateChatPage() {
       fileName: item.fileName,
       fileSpecificMessage: "", // Removed verbose message to keep UI clean
       data: item.data,
+      pdfKey: item.pdfKey,
     })
+
+    const firstGroundedCitations =
+      Object.values(item.data).find((resultItem) => resultItem.citations && resultItem.citations.length > 0)
+        ?.citations ?? []
+
+    if (item.pdfKey && firstGroundedCitations.length > 0) {
+      selectPdfForViewer(item.pdfKey, item.fileName, firstGroundedCitations, 0)
+    }
 
     // Immediate scroll to bottom when viewing extraction
     setTimeout(scrollToBottom, 300) // Slightly longer delay since we're adding two messages
@@ -417,234 +536,274 @@ export default function MetaMateChatPage() {
     setSelectedFiles((prev) => prev.filter((f) => f.name !== fileNameToRemove))
   }
 
+  const activePdfUrl = viewerSelection?.pdfKey ? pdfSources[viewerSelection.pdfKey] : undefined
+  const activePdfName = viewerSelection?.fileName
+  const activeCitations = viewerSelection?.citations ?? []
+  const activeCitationIndex = viewerSelection?.activeIndex ?? 0
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans">
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="p-3.5 border-b border-slate-200 dark:border-slate-700/60 bg-white dark:bg-primary-jhuBlue flex justify-between items-center shadow-subtle">
-          <div className="flex items-center gap-2.5">
-            <BotMessageSquare className="h-7 w-7 text-primary-jhuBlue dark:text-primary-jhuLightBlue" />
-            <h1 className="text-xl font-semibold text-primary-jhuBlue dark:text-white tracking-tight">MetaMate</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsAuthorInfoModalOpen(true)}
-              className="text-xs py-1 px-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/80"
-            >
-              <InfoIcon className="mr-1 h-3.5 w-3.5" /> About & Cite
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsSchemeEditorOpen(true)}
-              className="text-sm py-1.5 px-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue border-primary-jhuBlue/70 dark:border-primary-jhuLightBlue/70 hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/80"
-            >
-              <Settings2 className="mr-1.5 h-4 w-4" />
-              Coding Scheme
-            </Button>
-          </div>
-        </header>
-
-        {/* Messages Area */}
-        <div className="flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800/30">
-          <div ref={chatAreaRef} className="h-full overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.type === "user-upload" ? "justify-end" : "justify-start"} mb-3.5`}
-              >
-                <div
-                  className={`max-w-2xl ${msg.type === "error" && msg.fileName ? "p-2" : "p-3"} rounded-lg shadow-medium text-sm leading-relaxed ${
-                    msg.type === "user-upload"
-                      ? "bg-primary-jhuLightBlue text-white"
-                      : msg.type === "system"
-                        ? "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100"
-                        : msg.type === "error"
-                          ? "bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200"
-                          : "bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600/70"
-                  }`}
-                >
-                  {msg.type === "error" && !msg.fileName && (
-                    <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400 shrink-0" />
-                  )}
-
-                  {(msg.type === "file-info" ||
-                    msg.type === "extraction-result" ||
-                    (msg.type === "error" && msg.fileName)) &&
-                    msg.fileName && (
-                      <div
-                        className={`font-semibold text-primary-jhuBlue dark:text-primary-jhuLightBlue ${msg.type === "error" ? "mb-0.5" : "mb-1"}`}
-                      >
-                        <FileText className="inline h-4 w-4 mr-1" />
-                        {msg.fileName}
-                      </div>
-                    )}
-
-                  {msg.fileSpecificMessage && (
-                    <div
-                      className={`text-xs ${msg.type === "error" ? "text-red-600 dark:text-red-300" : "text-slate-600 dark:text-slate-400 italic"} ${msg.type === "error" ? "" : "mb-1"}`}
-                    >
-                      {msg.type === "error" && <AlertTriangle className="inline h-3 w-3 mr-1" />}
-                      {msg.fileSpecificMessage}
-                    </div>
-                  )}
-
-                  {typeof msg.content === "string" && !msg.fileSpecificMessage ? <p>{msg.content}</p> : msg.content}
-
-                  {msg.isProcessing && (
-                    <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
-                      <Loader2 className="animate-spin mr-1.5 h-3.5 w-3.5" />
-                      Processing...
-                    </div>
-                  )}
-
-                  {msg.data && msg.type === "extraction-result" && (
-                    <div className="mt-1.5 pt-1.5 border-t border-slate-300/70 dark:border-slate-600/70">
-                      <h4 className="font-medium text-xs mb-2 text-slate-600 dark:text-slate-300">
-                        <CheckCircle2 className="inline h-4 w-4 mr-1 text-jhu-accent-4" /> Extracted Data:
-                      </h4>
-                      <div className="space-y-2 text-xs">
-                        {Object.entries(msg.data).map(([key, resultItem]) => (
-                          <ExtractionItemDisplay key={key} label={key} item={resultItem} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {isClient && (
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 text-right">
-                      {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  )}
+      <div className="flex flex-1 overflow-hidden">
+        <ResizablePanelContainer
+          initialLeftRatio={0.5}
+          minLeftWidth={360}
+          minRightWidth={360}
+          left={
+            <div className="flex flex-col h-full min-w-0">
+              {/* Header */}
+              <header className="p-3.5 border-b border-slate-200 dark:border-slate-700/60 bg-white dark:bg-primary-jhuBlue flex justify-between items-center shadow-subtle">
+                <div className="flex items-center gap-2.5">
+                  <BotMessageSquare className="h-7 w-7 text-primary-jhuBlue dark:text-primary-jhuLightBlue" />
+                  <h1 className="text-xl font-semibold text-primary-jhuBlue dark:text-white tracking-tight">
+                    MetaMate
+                  </h1>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Input Area */}
-        <div className="p-3.5 border-t border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 shadow-upward">
-          {selectedFiles.length > 0 && (
-            <div className="mb-2 space-y-1.5 max-h-28 overflow-y-auto pr-1">
-              {selectedFiles.map((file) => (
-                <div
-                  key={file.name}
-                  className="p-1.5 border border-jhu-light-blue/50 dark:border-jhu-blue/50 bg-jhu-light-blue/10 dark:bg-jhu-blue/20 rounded-md flex justify-between items-center text-xs"
-                >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <FileText className="h-4 w-4 text-primary-jhuBlue dark:text-primary-jhuLightBlue shrink-0" />
-                    <span className="font-medium text-primary-jhuBlue dark:text-slate-100 truncate" title={file.name}>
-                      {file.name}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    onClick={() => removeSelectedFile(file.name)}
-                    className="text-red-500/80 hover:bg-red-500/10 h-6 w-6 shrink-0"
+                    size="sm"
+                    onClick={() => setIsAuthorInfoModalOpen(true)}
+                    className="text-xs py-1 px-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/80"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <InfoIcon className="mr-1 h-3.5 w-3.5" /> About & Cite
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSchemeEditorOpen(true)}
+                    className="text-sm py-1.5 px-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue border-primary-jhuBlue/70 dark:border-primary-jhuLightBlue/70 hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/80"
+                  >
+                    <Settings2 className="mr-1.5 h-4 w-4" />
+                    Coding Scheme
                   </Button>
                 </div>
-              ))}
+              </header>
+
+              {/* Messages Area */}
+              <div className="flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800/30">
+                <div ref={chatAreaRef} className="h-full overflow-y-auto p-4 space-y-4">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.type === "user-upload" ? "justify-end" : "justify-start"} mb-3.5`}
+                    >
+                      <div
+                        className={`max-w-2xl ${msg.type === "error" && msg.fileName ? "p-2" : "p-3"} rounded-lg shadow-medium text-sm leading-relaxed ${
+                          msg.type === "user-upload"
+                            ? "bg-primary-jhuLightBlue text-white"
+                            : msg.type === "system"
+                              ? "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100"
+                              : msg.type === "error"
+                                ? "bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200"
+                                : "bg-white dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600/70"
+                        }`}
+                      >
+                        {msg.type === "error" && !msg.fileName && (
+                          <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400 shrink-0" />
+                        )}
+
+                        {(msg.type === "file-info" ||
+                          msg.type === "extraction-result" ||
+                          (msg.type === "error" && msg.fileName)) &&
+                          msg.fileName && (
+                            <div
+                              className={`font-semibold text-primary-jhuBlue dark:text-primary-jhuLightBlue ${msg.type === "error" ? "mb-0.5" : "mb-1"}`}
+                            >
+                              <FileText className="inline h-4 w-4 mr-1" />
+                              {msg.fileName}
+                            </div>
+                          )}
+
+                        {msg.fileSpecificMessage && (
+                          <div
+                            className={`text-xs ${msg.type === "error" ? "text-red-600 dark:text-red-300" : "text-slate-600 dark:text-slate-400 italic"} ${msg.type === "error" ? "" : "mb-1"}`}
+                          >
+                            {msg.type === "error" && <AlertTriangle className="inline h-3 w-3 mr-1" />}
+                            {msg.fileSpecificMessage}
+                          </div>
+                        )}
+
+                        {typeof msg.content === "string" && !msg.fileSpecificMessage ? (
+                          <p>{msg.content}</p>
+                        ) : (
+                          msg.content
+                        )}
+
+                        {msg.isProcessing && (
+                          <div className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+                            <Loader2 className="animate-spin mr-1.5 h-3.5 w-3.5" />
+                            Processing...
+                          </div>
+                        )}
+
+                        {msg.data && msg.type === "extraction-result" && (
+                          <div className="mt-1.5 pt-1.5 border-t border-slate-300/70 dark:border-slate-600/70">
+                            <h4 className="font-medium text-xs mb-2 text-slate-600 dark:text-slate-300">
+                              <CheckCircle2 className="inline h-4 w-4 mr-1 text-jhu-accent-4" /> Extracted Data:
+                            </h4>
+                            <div className="space-y-2 text-xs">
+                              {Object.entries(msg.data).map(([key, resultItem]) => (
+                                <ExtractionItemDisplay
+                                  key={key}
+                                  label={key}
+                                  item={resultItem}
+                                  onCitationSelect={(_, index, citations) =>
+                                    selectPdfForViewer(msg.pdfKey, msg.fileName, citations, index)
+                                  }
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {isClient && (
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 text-right">
+                            {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Input Area */}
+              <div className="p-3.5 border-t border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 shadow-upward">
+                {selectedFiles.length > 0 && (
+                  <div className="mb-2 space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                    {selectedFiles.map((file) => (
+                      <div
+                        key={file.name}
+                        className="p-1.5 border border-jhu-light-blue/50 dark:border-jhu-blue/50 bg-jhu-light-blue/10 dark:bg-jhu-blue/20 rounded-md flex justify-between items-center text-xs"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <FileText className="h-4 w-4 text-primary-jhuBlue dark:text-primary-jhuLightBlue shrink-0" />
+                          <span
+                            className="font-medium text-primary-jhuBlue dark:text-slate-100 truncate"
+                            title={file.name}
+                          >
+                            {file.name}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSelectedFile(file.name)}
+                          className="text-red-500/80 hover:bg-red-500/10 h-6 w-6 shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2.5">
+                  <Button
+                    variant="outline"
+                    onClick={triggerFileInput}
+                    className="p-2.5 border-primary-jhuBlue/70 text-primary-jhuBlue hover:bg-primary-jhuLightBlue/10 dark:text-primary-jhuLightBlue dark:border-primary-jhuLightBlue/70 dark:hover:bg-primary-jhuBlue/30"
+                    title="Attach PDF files"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                    <span className="sr-only">Attach PDF</span>
+                  </Button>
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="pdf-upload-chat"
+                  />
+                  <Button
+                    onClick={handleExtractData}
+                    disabled={selectedFiles.length === 0 || isExtracting}
+                    className="flex-1 py-2.5 bg-primary-jhuBlue hover:bg-primary-jhuBlue/90 text-white dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue dark:hover:bg-primary-jhuLightBlue/90 text-sm font-medium"
+                  >
+                    {isExtracting ? (
+                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    ) : (
+                      <Send className="mr-2 h-4 w-4" />
+                    )}
+                    {isExtracting
+                      ? `Extracting ${extractingFileCount} file(s)...`
+                      : `Extract Data from ${selectedFiles.length > 0 ? selectedFiles.length + " file(s)" : "PDF(s)"}`}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          }
+          right={
+            <PdfViewerPanel
+              fileUrl={activePdfUrl}
+              fileName={activePdfName}
+              citations={activeCitations}
+              activeIndex={activeCitationIndex}
+            />
+          }
+        />
+        {/* Right Sidebar: Extraction History */}
+        <aside className="w-80 border-l border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 flex flex-col shadow-lg">
+          <CardHeader className="p-3.5 border-b border-slate-200 dark:border-slate-700/60">
+            <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+              <BarChart3 className="h-5 w-5" />
+              Extraction History
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Recent extractions this session.
+            </CardDescription>
+          </CardHeader>
+          <ScrollArea className="flex-1">
+            <CardContent className="p-2.5">
+              {extractionHistory.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-3">No extractions yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {extractionHistory.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors group"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="truncate">
+                          <p
+                            className="font-medium text-xs text-primary-jhuBlue dark:text-slate-100 truncate"
+                            title={entry.fileName}
+                          >
+                            {entry.fileName}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30 shrink-0"
+                          onClick={() => viewHistoryItem(entry)}
+                          title="View this extraction in chat"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </ScrollArea>
+          {extractionHistory.length > 0 && (
+            <div className="p-2.5 border-t border-slate-200 dark:border-slate-700/60">
+              <Button
+                variant="outline"
+                className="w-full text-sm py-1.5 px-3 text-jhu-accent-4 dark:text-jhu-accent-3 border-jhu-accent-4/70 dark:border-jhu-accent-3/70 hover:bg-jhu-accent-4/10 dark:hover:bg-jhu-accent-3/20"
+                onClick={downloadAllHistoryCSV}
+              >
+                <Download className="mr-1.5 h-4 w-4" /> Download All History (CSV)
+              </Button>
             </div>
           )}
-          <div className="flex items-center gap-2.5">
-            <Button
-              variant="outline"
-              onClick={triggerFileInput}
-              className="p-2.5 border-primary-jhuBlue/70 text-primary-jhuBlue hover:bg-primary-jhuLightBlue/10 dark:text-primary-jhuLightBlue dark:border-primary-jhuLightBlue/70 dark:hover:bg-primary-jhuBlue/30"
-              title="Attach PDF files"
-            >
-              <Paperclip className="h-5 w-5" />
-              <span className="sr-only">Attach PDF</span>
-            </Button>
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              multiple
-              onChange={handleFileChange}
-              className="hidden"
-              id="pdf-upload-chat"
-            />
-            <Button
-              onClick={handleExtractData}
-              disabled={selectedFiles.length === 0 || isExtracting}
-              className="flex-1 py-2.5 bg-primary-jhuBlue hover:bg-primary-jhuBlue/90 text-white dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue dark:hover:bg-primary-jhuLightBlue/90 text-sm font-medium"
-            >
-              {isExtracting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-              {isExtracting
-                ? `Extracting ${extractingFileCount} file(s)...`
-                : `Extract Data from ${selectedFiles.length > 0 ? selectedFiles.length + " file(s)" : "PDF(s)"}`}
-            </Button>
-          </div>
-        </div>
+        </aside>
       </div>
-
-      {/* Right Sidebar: Extraction History */}
-      <aside className="w-80 border-l border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 flex flex-col shadow-lg">
-        <CardHeader className="p-3.5 border-b border-slate-200 dark:border-slate-700/60">
-          <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue">
-            <BarChart3 className="h-5 w-5" />
-            Extraction History
-          </CardTitle>
-          <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Recent extractions this session.
-          </CardDescription>
-        </CardHeader>
-        <ScrollArea className="flex-1">
-          <CardContent className="p-2.5">
-            {extractionHistory.length === 0 ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-3">No extractions yet.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {extractionHistory.map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors group"
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="truncate">
-                        <p
-                          className="font-medium text-xs text-primary-jhuBlue dark:text-slate-100 truncate"
-                          title={entry.fileName}
-                        >
-                          {entry.fileName}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30 shrink-0"
-                        onClick={() => viewHistoryItem(entry)}
-                        title="View this extraction in chat"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </ScrollArea>
-        {extractionHistory.length > 0 && (
-          <div className="p-2.5 border-t border-slate-200 dark:border-slate-700/60">
-            <Button
-              variant="outline"
-              className="w-full text-sm py-1.5 px-3 text-jhu-accent-4 dark:text-jhu-accent-3 border-jhu-accent-4/70 dark:border-jhu-accent-3/70 hover:bg-jhu-accent-4/10 dark:hover:bg-jhu-accent-3/20"
-              onClick={downloadAllHistoryCSV}
-            >
-              <Download className="mr-1.5 h-4 w-4" /> Download All History (CSV)
-            </Button>
-          </div>
-        )}
-      </aside>
 
       <CodingSchemeEditor
         isOpen={isSchemeEditorOpen}

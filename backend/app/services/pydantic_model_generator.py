@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, create_model
 
+from app.models.llm import LLMExtractionField
+
 logger = logging.getLogger(__name__)
 
 # A mapping function for Data Type in CSV to Python type
@@ -45,7 +47,10 @@ def create_models(hierarchy_dict, class_name="Root"):
         if isinstance(v, dict):
             # nested class
             nested_model = create_models(v, class_name=k.capitalize())
-            fields[k] = (Optional[nested_model], Field(None))
+            fields[k] = (
+                Optional[nested_model],
+                Field(None, description=f"Nested group for {k.replace('_', ' ').title()}"),
+            )
         elif v is not None:
             # v should be (data_type, definition) tuple
             try:
@@ -61,8 +66,19 @@ def create_models(hierarchy_dict, class_name="Root"):
                 logger.warning(f"⚠️ Error unpacking field '{k}': {e}, using default Text type")
                 dt_str, definition = "Text", ""
 
-            py_type = type_map.get(dt_str, str)
-            fields[k] = (Optional[py_type], Field(None, description=definition))
+            if dt_str not in type_map:
+                logger.warning(f"⚠️ Unknown data type '{dt_str}' for '{k}', defaulting to Text")
+                dt_str = "Text"
+
+            field_description = definition or ""
+            if dt_str:
+                type_hint = f"Expected type: {dt_str}."
+                field_description = f"{field_description} {type_hint}".strip()
+
+            fields[k] = (
+                Optional[LLMExtractionField],
+                Field(None, description=field_description),
+            )
         else:
             logger.warning(f"⚠️ Skipping field '{k}' with None value")
     return create_model(class_name, **fields)

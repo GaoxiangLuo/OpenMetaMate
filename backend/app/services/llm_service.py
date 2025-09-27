@@ -5,27 +5,33 @@ from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from app.core.config import settings
 from app.core.exceptions import ExtractionError
-from app.services.pydantic_model_generator import (
-    coding_scheme_items_to_pydantic_model,
-    flatten_json,
-)
+from app.services.pydantic_model_generator import coding_scheme_items_to_pydantic_model
 
 logger = logging.getLogger(__name__)
 
 # System prompt from original implementation
-SYSTEM_PROMPT = """You are an expert at identifying data elements for educational systematic reviews and meta-analyses in the text.
+SYSTEM_PROMPT = """You are an expert analyst extracting structured data for educational systematic reviews and meta-analyses.
 
-Only extract relevant data elements from the text based on the description of each element.
+The user will provide a document rendered as text with explicit page markers. Each page is wrapped like this:
+<<PAGE 12>>
+...page content...
+<<END PAGE 12>>
 
-If you cannot find the relevant data element in the text, do not extract it and leave it as null since the all elements defined in pydantic model are optional.
+The integer in the marker always reflects the physical page index reported by the PDF reader. Never substitute page numbers found in the body text or renumber pages yourself. When you reference supporting evidence, you must use the integer from the surrounding page marker.
 
-Additional requirements:
+For every coding scheme field, return an object with:
+- value: the extracted answer or null when unavailable.
+- answer_type: "Grounded", "Inference", or "Not Found".
+- citations: list of objects with page_number (integer) and type ("Exact Quote" or "Inference"). Provide reasoning for inference citations.
+- confidence: optional float between 0 and 1.
+- reasoning: optional explanation when additional context is helpful.
 
-1. If the age of participant is NOT present, infer age from grade-level if possible, but don't use grade-level directly as age.
+Leave fields null when they are not present, and set answer_type to "Not Found" with an empty citations list. Prefer "Grounded" when you can reference a specific page marker. Only infer when necessary and explain the inference succinctly.
 
-2. If the study reports sample size after attrition, use the number after attrition is accounted for, instead of the original sample size.
-
-3. Many boolean type extraction are multi-label classification. For example, the population could involve both grade 3 and grade 4 students. In this case, the grade 3 and 4 should both be true while others are false. Use the context among extraction elements.
+Additional domain reminders:
+1. If participant age is not explicit, infer from grade level when possible but never report the grade itself as age.
+2. If both original and post-attrition sample sizes are present, report the post-attrition value.
+3. Treat boolean multi-label options independently (e.g., grade 3 and grade 4 can both be true).
 """
 
 
@@ -77,19 +83,14 @@ class LLMService:
                 seed=settings.SEED,
             )
 
-            # Extract the parsed result
-            if completion.choices[0].message.parsed:
-                result = completion.choices[0].message.parsed.model_dump(mode="json")
-                # Flatten the nested structure
-                flattened_result = flatten_json(result)
+            parsed_message = completion.choices[0].message.parsed
+            if parsed_message:
+                result = parsed_message.model_dump(mode="python")
+                logger.debug("✅ LLM extraction successful with structured output")
+                return result
 
-                extracted_fields = len([v for v in flattened_result.values() if v is not None])
-                logger.debug(f"✅ LLM extraction successful: {extracted_fields} fields extracted")
-
-                return flattened_result
-            else:
-                logger.warning("⚠️ No parsed result from LLM")
-                return {}
+            logger.warning("⚠️ No parsed result from LLM")
+            return {}
 
         except RateLimitError as e:
             logger.error(f"🚫 Rate limit error from LLM API: {e}")

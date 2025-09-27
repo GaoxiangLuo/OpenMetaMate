@@ -9,9 +9,18 @@ export interface CodingSchemeItem {
   includeInExtraction: boolean // New property
 }
 
+export interface Citation {
+  pageNumber: number
+  type: "Exact Quote" | "Inference"
+  reasoning?: string | null
+}
+
 export interface ExtractionResultItem {
-  value: string | number | boolean // Value can be string, number, or boolean
-  confidence: number // A value between 0 and 1
+  value: string | number | boolean | null
+  confidence?: number | null
+  answerType: "Grounded" | "Inference" | "Not Found"
+  citations: Citation[]
+  reasoning?: string | null
 }
 
 export type ExtractionResult = Record<string, ExtractionResultItem>
@@ -25,6 +34,7 @@ export interface ChatMessage {
   data?: ExtractionResult
   timestamp: Date
   isProcessing?: boolean
+  pdfKey?: string
 }
 
 export interface ExtractionHistoryItem {
@@ -33,6 +43,7 @@ export interface ExtractionHistoryItem {
   data: ExtractionResult
   timestamp: Date
   codingSchemeUsed: CodingSchemeItem[] // Store the exact scheme used for this extraction
+  pdfKey?: string
 }
 
 export interface ProcessedFileResult {
@@ -40,4 +51,5 @@ export interface ProcessedFileResult {
   status: "success" | "error"
   data?: ExtractionResult
   errorMessage?: string
+  pdfKey?: string
 }

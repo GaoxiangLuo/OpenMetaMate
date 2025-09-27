@@ -20,6 +20,20 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["@headlessui/react", "lucide-react"],
   },
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.alias = {
+      ...(config.resolve.alias || {}),
+      canvas: false,
+      encoding: false,
+    }
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      canvas: false,
+      encoding: false,
+    }
+    return config
+  },
 }
 
 export default nextConfig
