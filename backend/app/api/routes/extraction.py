@@ -3,9 +3,10 @@ import json
 import logging
 import random
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from pydantic import ValidationError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -13,14 +14,190 @@ from app.core.config import settings
 from app.core.exceptions import ExtractionError, PDFProcessingError
 from app.core.utils import get_expected_key, is_not_found_value
 from app.models.requests import CodingSchemeItem
-from app.models.responses import ExtractionResponse, ExtractionResultItem
+from app.models.responses import Citation, ExtractionResponse, ExtractionResultItem
 from app.services.llm_service import LLMService
-from app.services.pdf_processor import PDFProcessorFactory, PDFProcessorType
+from app.services.pdf_processor import (
+    PDFExtractionResult,
+    PDFProcessorFactory,
+    PDFProcessorType,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
+
+ANSWER_TYPE_NORMALIZATION = {
+    "grounded": "Grounded",
+    "inference": "Inference",
+    "not found": "Not Found",
+    "not_found": "Not Found",
+}
+
+CITATION_TYPE_NORMALIZATION = {
+    "exact quote": "Exact Quote",
+    "exact_quote": "Exact Quote",
+    "quote": "Exact Quote",
+    "inference": "Inference",
+}
+
+
+def _normalize_answer_type(
+    raw_value: Optional[str],
+    fallback_has_value: bool,
+    has_citations: bool,
+) -> str:
+    """Normalize answer type values from the LLM output."""
+
+    if raw_value:
+        candidate = ANSWER_TYPE_NORMALIZATION.get(raw_value.strip().lower())
+        if candidate:
+            return candidate
+
+    if not fallback_has_value:
+        return "Not Found"
+
+    if has_citations:
+        return "Grounded"
+
+    return "Inference"
+
+
+def _normalize_citation_type(raw_value: Optional[str]) -> Optional[str]:
+    """Normalize citation type labels from the LLM output."""
+
+    if not raw_value:
+        return None
+    return CITATION_TYPE_NORMALIZATION.get(raw_value.strip().lower())
+
+
+def build_extraction_item(
+    raw_data: Optional[Dict[str, Any]],
+    *,
+    fallback_label: str,
+) -> ExtractionResultItem:
+    """Convert the LLM structured output for a field into an API response item."""
+
+    if not raw_data:
+        logger.debug(f"ℹ️ No data for '{fallback_label}', marking as not found")
+        return ExtractionResultItem(
+            value="Not Found",
+            confidence=None,
+            answer_type="Not Found",
+            citations=[],
+            reasoning=None,
+        )
+
+    raw_value = raw_data.get("value")
+    fallback_has_value = not is_not_found_value(raw_value)
+
+    raw_citations = raw_data.get("citations") or []
+    citations: List[Citation] = []
+    if isinstance(raw_citations, list):
+        for entry in raw_citations:
+            if not isinstance(entry, dict):
+                continue
+
+            page_number = entry.get("page_number") or entry.get("pageNumber")
+            citation_type_raw = entry.get("type") or entry.get("citation_type")
+            reasoning = entry.get("reasoning")
+
+            if isinstance(page_number, str) and page_number.isdigit():
+                page_number = int(page_number)
+
+            normalized_type = _normalize_citation_type(
+                citation_type_raw if isinstance(citation_type_raw, str) else None
+            )
+
+            if page_number is None or normalized_type is None:
+                continue
+
+            if normalized_type == "Inference" and not reasoning:
+                reasoning = f"Inference explainability missing for '{fallback_label}'."
+
+            try:
+                citations.append(
+                    Citation(
+                        page_number=page_number,
+                        citation_type=normalized_type,
+                        reasoning=reasoning,
+                    )
+                )
+            except ValidationError as citation_error:
+                logger.debug(
+                    "⚠️ Skipping invalid citation for '%s': %s",
+                    fallback_label,
+                    citation_error,
+                )
+
+    has_citations = len(citations) > 0
+
+    raw_answer_type = raw_data.get("answer_type") or raw_data.get("answerType")
+    answer_type = _normalize_answer_type(
+        raw_answer_type if isinstance(raw_answer_type, str) else None,
+        fallback_has_value,
+        has_citations,
+    )
+
+    reasoning = raw_data.get("reasoning") or None
+    confidence_value = raw_data.get("confidence")
+    confidence: Optional[float] = None
+
+    if confidence_value is not None:
+        try:
+            parsed_confidence = float(confidence_value)
+            if 0 <= parsed_confidence <= 1:
+                confidence = round(parsed_confidence, 3)
+        except (TypeError, ValueError):
+            logger.debug(
+                "⚠️ Ignoring non-numeric confidence for '%s': %s",
+                fallback_label,
+                confidence_value,
+            )
+
+    if answer_type == "Not Found":
+        raw_value = "Not Found"
+        confidence = None
+        citations = []
+        reasoning = None
+    else:
+        if not has_citations:
+            logger.debug(
+                "⚠️ Missing citations for '%s'; reverting to Not Found to maintain invariants",
+                fallback_label,
+            )
+            return ExtractionResultItem(
+                value="Not Found",
+                confidence=None,
+                answer_type="Not Found",
+                citations=[],
+                reasoning=None,
+            )
+
+        if confidence is None:
+            confidence = round(random.uniform(0.7, 1.0), 3)
+
+    try:
+        return ExtractionResultItem(
+            value=raw_value,
+            confidence=confidence,
+            answer_type=answer_type,
+            citations=citations,
+            reasoning=reasoning,
+        )
+    except ValidationError as extraction_error:
+        logger.warning(
+            "⚠️ Extraction data for '%s' failed validation (%s); marking as Not Found",
+            fallback_label,
+            extraction_error,
+        )
+        return ExtractionResultItem(
+            value="Not Found",
+            confidence=None,
+            answer_type="Not Found",
+            citations=[],
+            reasoning=None,
+        )
 
 
 # Create PDF processor based on configuration
@@ -115,7 +292,9 @@ async def extract_data(
 
         # Extract text from PDF
         logger.info("🔍 Starting text extraction from PDF...")
-        text = await pdf_processor.extract_text_from_pdf(contents)
+        extraction_result: PDFExtractionResult = await pdf_processor.extract_text_from_pdf(contents)
+
+        text = extraction_result.full_text
 
         if not text or len(text.strip()) == 0:
             logger.warning(f"⚠️ No text extracted from PDF: {pdf_file.filename}")
@@ -150,43 +329,48 @@ async def extract_data(
         )
 
         # Merge results from all chunks
-        results = {}
-        valid_extractions = 0
-        for chunk_index, chunk_results in enumerate(chunk_results_list):
-            for key, value in chunk_results.items():
-                if value is not None and not is_not_found_value(value):
-                    results[key] = value
-                    valid_extractions += 1
-                    logger.debug(f"🔍 Found '{key}' in chunk {chunk_index + 1}: {value}")
+        def get_field_from_chunk(
+            chunk_data: Dict[str, Any], key_path: str
+        ) -> Optional[Dict[str, Any]]:
+            """Locate the structured extraction for a field within a chunk result."""
 
-        logger.info(f"📊 Merged results: {valid_extractions} valid extractions found")
+            parts = [part for part in key_path.split("/") if part]
+            node: Any = chunk_data
+            for part in parts:
+                if not isinstance(node, dict):
+                    return None
+                node = node.get(part)
+                if node is None:
+                    return None
+            return node if isinstance(node, dict) else None
 
-        extracted_data = {}
+        extracted_data: Dict[str, ExtractionResultItem] = {}
         found_count = 0
         not_found_count = 0
 
         for item in parsed_scheme:
             if item.include_in_extraction:
                 expected_key = get_expected_key(item.name)
-                value = results.get(expected_key)
+                candidate_data: Optional[Dict[str, Any]] = None
+                for chunk_data in chunk_results_list:
+                    candidate_data = get_field_from_chunk(chunk_data, expected_key)
+                    if candidate_data:
+                        break
 
-                if is_not_found_value(value):
-                    extracted_data[item.name] = ExtractionResultItem(
-                        value="Not Found", confidence=None
-                    )
+                parsed_item = build_extraction_item(
+                    candidate_data,
+                    fallback_label=item.name,
+                )
+
+                extracted_data[item.name] = parsed_item
+
+                if parsed_item.answer_type == "Not Found":
                     not_found_count += 1
                     logger.debug(f"🔍 '{item.name}' not found in document")
                 else:
-                    # Generate random confidence score (placeholder)
-                    confidence_score = random.uniform(0.7, 1.0)
-
-                    extracted_data[item.name] = ExtractionResultItem(
-                        value=value,
-                        confidence=round(confidence_score, 3),
-                    )
                     found_count += 1
                     logger.debug(
-                        f"✅ '{item.name}' extracted with confidence {confidence_score:.3f}"
+                        "✅ '%s' extracted with confidence %s", item.name, parsed_item.confidence
                     )
 
         # Calculate processing time

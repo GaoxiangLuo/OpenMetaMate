@@ -4,14 +4,9 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, create_model
 
-logger = logging.getLogger(__name__)
+from app.models.llm import LLMExtractionField
 
-# A mapping function for Data Type in CSV to Python type
-type_map = {
-    "Text": str,
-    "Numeric": float,
-    "Boolean": bool,
-}
+logger = logging.getLogger(__name__)
 
 
 def set_in_hierarchy(path_parts, node, data_type, definition):
@@ -24,7 +19,7 @@ def set_in_hierarchy(path_parts, node, data_type, definition):
         # This is the final field
         field_name = path_parts[0]
         field_name = field_name.lower().replace(" ", "_")
-        node[field_name] = (data_type, definition)
+        node[field_name] = definition
     else:
         # This is a class node
         class_name = path_parts[0]
@@ -37,7 +32,7 @@ def set_in_hierarchy(path_parts, node, data_type, definition):
 def create_models(hierarchy_dict, class_name="Root"):
     """
     Recursively create models from the hierarchy dictionary.
-    If a value is a tuple (data_type, definition), it is a field.
+    If a value is a string, it is a field definition.
     If a value is a dict, it is a nested model.
     """
     fields = {}
@@ -45,24 +40,26 @@ def create_models(hierarchy_dict, class_name="Root"):
         if isinstance(v, dict):
             # nested class
             nested_model = create_models(v, class_name=k.capitalize())
-            fields[k] = (Optional[nested_model], Field(None))
+            fields[k] = (
+                Optional[nested_model],
+                Field(None, description=f"Nested group for {k.replace('_', ' ').title()}"),
+            )
+        elif isinstance(v, str):
+            # v is the field definition/description
+            field_description = v or ""
+            fields[k] = (
+                Optional[LLMExtractionField],
+                Field(None, description=field_description),
+            )
         elif v is not None:
-            # v should be (data_type, definition) tuple
-            try:
-                if isinstance(v, tuple) and len(v) == 2:
-                    dt_str, definition = v
-                else:
-                    logger.warning(
-                        f"⚠️ Unexpected value type for field '{k}': {type(v)}, "
-                        "using default Text type"
-                    )
-                    dt_str, definition = "Text", ""
-            except (ValueError, TypeError) as e:
-                logger.warning(f"⚠️ Error unpacking field '{k}': {e}, using default Text type")
-                dt_str, definition = "Text", ""
-
-            py_type = type_map.get(dt_str, str)
-            fields[k] = (Optional[py_type], Field(None, description=definition))
+            logger.warning(
+                f"⚠️ Unexpected value type for field '{k}': {type(v)}, treating as description"
+            )
+            field_description = str(v)
+            fields[k] = (
+                Optional[LLMExtractionField],
+                Field(None, description=field_description),
+            )
         else:
             logger.warning(f"⚠️ Skipping field '{k}' with None value")
     return create_model(class_name, **fields)
@@ -100,18 +97,13 @@ def coding_scheme_items_to_pydantic_model(coding_scheme_items: List[Dict[str, An
                     logger.warning("⚠️ Skipping item with no name")
                     continue
 
-                data_type = item.get("data_type", item.get("dataType", "Text")).strip()
                 definition = item.get("description", "").strip()
 
-                if data_type not in type_map:
-                    logger.warning(f"⚠️ Unknown data type '{data_type}' for '{name}', using Text")
-                    data_type = "Text"
-
                 parts = name.split("/")
-                logger.debug(f"🔧 Adding field: {name} ({data_type})")
+                logger.debug(f"🔧 Adding field: {name}")
 
-                # Set in hierarchy
-                set_in_hierarchy(parts, hierarchy, data_type, definition)
+                # Set in hierarchy - data_type no longer needed
+                set_in_hierarchy(parts, hierarchy, None, definition)
                 included_count += 1
 
         logger.info(f"📊 Processed {included_count} fields for extraction")

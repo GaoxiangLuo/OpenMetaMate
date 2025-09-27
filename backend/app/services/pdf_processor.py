@@ -4,6 +4,7 @@ import os
 import re
 import tempfile
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from enum import Enum
 from typing import List
 
@@ -16,39 +17,55 @@ from app.core.exceptions import PDFProcessingError
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class PDFPageContent:
+    """Lightweight container for the text extracted from a single PDF page."""
+
+    page_number: int
+    text: str
+
+
+@dataclass
+class PDFExtractionResult:
+    """Aggregate text content and per-page breakdown produced by a PDF processor."""
+
+    full_text: str
+    pages: List[PDFPageContent]
+
+
 class PDFProcessorType(Enum):
-    """Available PDF processor implementations"""
+    """Available PDF processor implementations."""
 
     PYPDF = "pypdf"
 
 
 class BasePDFProcessor(ABC):
-    """Abstract base class for PDF processors"""
+    """Abstract base class for PDF processors."""
 
     def __init__(self):
         self.chunk_size = settings.TEXT_CHUNK_SIZE
         self.chunk_overlap = settings.TEXT_CHUNK_OVERLAP
 
     @abstractmethod
-    async def extract_text_from_pdf(self, pdf_content: bytes) -> str:
-        """Extract text from PDF bytes
+    async def extract_text_from_pdf(self, pdf_content: bytes) -> PDFExtractionResult:
+        """Extract textual content for the entire PDF along with per-page metadata.
 
         Args:
-            pdf_content: PDF file content as bytes
+            pdf_content: PDF file content represented as bytes.
 
         Returns:
-            Extracted text as string
+            PDFExtractionResult containing full aggregated text and page-level slices.
         """
-        pass
+        raise NotImplementedError
 
     async def chunk_text(self, text: str) -> List[str]:
-        """Split text into chunks using TokenTextSplitter
+        """Split text into manageable chunks using TokenTextSplitter.
 
         Args:
-            text: Text to split
+            text: The full document text which may include page markers.
 
         Returns:
-            List of text chunks
+            List of text chunks appropriate for prompting the LLM.
         """
 
         def _chunk():
@@ -82,10 +99,10 @@ class BasePDFProcessor(ABC):
 
 
 class PyPDFProcessor(BasePDFProcessor):
-    """PDF processor using PyPDF/langchain implementation"""
+    """PDF processor using PyPDF/langchain implementation."""
 
-    async def extract_text_from_pdf(self, pdf_content: bytes) -> str:
-        """Extract text from PDF bytes using PyPDFLoader"""
+    async def extract_text_from_pdf(self, pdf_content: bytes) -> PDFExtractionResult:
+        """Extract text from PDF bytes using PyPDFLoader with page annotations."""
 
         def _extract():
             if not pdf_content:
@@ -109,24 +126,26 @@ class PyPDFProcessor(BasePDFProcessor):
 
                 logger.info(f"📖 Loaded {len(pages)} pages from PDF")
 
-                # Extract and clean text from all pages
-                text_parts = []
+                # Extract and clean text from all pages, preserving page order markers
+                page_sections: List[PDFPageContent] = []
+                annotated_parts: List[str] = []
                 for i, page in enumerate(pages, 1):
                     if page.page_content:
                         cleaned_text = re.sub("\n\n+", "\n", page.page_content)
-                        text_parts.append(cleaned_text)
+                        page_sections.append(PDFPageContent(page_number=i, text=cleaned_text))
+                        annotated_parts.append(f"<<PAGE {i}>>\n{cleaned_text}\n<<END PAGE {i}>>")
                         logger.debug(f"📑 Page {i}: {len(page.page_content)} chars")
                     else:
                         logger.debug(f"📑 Page {i}: Empty")
 
-                input_text = " ".join(text_parts)
+                input_text = "\n\n".join(annotated_parts)
 
                 if not input_text.strip():
                     logger.warning("⚠️ PDF contains no extractable text")
                     raise PDFProcessingError("No text could be extracted from PDF")
 
                 logger.info(f"✅ Successfully extracted {len(input_text):,} characters from PDF")
-                return input_text
+                return PDFExtractionResult(full_text=input_text, pages=page_sections)
 
             except PDFProcessingError:
                 raise
