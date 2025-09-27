@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, FileWarning } from "lucide-react"
 import type { Citation } from "@/lib/types"
 
-import "react-pdf/dist/esm/Page/AnnotationLayer.css"
-import "react-pdf/dist/esm/Page/TextLayer.css"
+import "react-pdf/dist/Page/AnnotationLayer.css"
+import "react-pdf/dist/Page/TextLayer.css"
 
 if (typeof window !== "undefined") {
-  const workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.js", import.meta.url)
+  const workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)
   pdfjs.GlobalWorkerOptions.workerSrc = workerSrc.toString()
 }
 

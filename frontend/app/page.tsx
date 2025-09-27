@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import dynamic from "next/dynamic"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +26,9 @@ import {
 import CodingSchemeEditor from "@/components/coding-scheme-editor"
 import ExtractionItemDisplay from "@/components/extraction-item-display"
 import AuthorInfoModal from "@/components/author-info-modal"
-import PdfViewerPanel from "@/components/pdf-viewer-panel"
+const PdfViewerPanel = dynamic(() => import("@/components/pdf-viewer-panel"), {
+  ssr: false,
+})
 import ResizablePanelContainer from "@/components/resizable-panel-container"
 import type {
   CodingSchemeItem,
@@ -84,10 +87,27 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
     const row: Record<string, string | number | boolean> = { FileName: entry.fileName }
     // Iterate over the scheme used for *this specific entry*
     entry.codingSchemeUsed.forEach((schemeItem) => {
-      if (schemeItem.includeInExtraction && entry.data[schemeItem.name]) {
-        const resultItem = entry.data[schemeItem.name]
-        row[schemeItem.name] = Array.isArray(resultItem.value) ? resultItem.value.join("; ") : resultItem.value
+      if (!schemeItem.includeInExtraction) {
+        return
       }
+
+      const resultItem = entry.data[schemeItem.name]
+      if (!resultItem) {
+        return
+      }
+
+      const rawValue = resultItem.value as unknown
+
+      if (Array.isArray(rawValue)) {
+        const displayValue = rawValue
+          .filter((item): item is string | number | boolean => item !== null && item !== undefined)
+          .join("; ")
+        row[schemeItem.name] = displayValue
+        return
+      }
+
+      const normalizedValue = (resultItem.value ?? "") as string | number | boolean
+      row[schemeItem.name] = normalizedValue
     })
     allRows.push(row)
   })
@@ -217,7 +237,7 @@ export default function MetaMateChatPage() {
     pdfSourcesRef.current = pdfSources
     setViewerSelection((prev) => {
       if (!prev) return prev
-      if (!pdfSources[prev.pdfKey]) {
+      if (!prev.pdfKey || !pdfSources[prev.pdfKey]) {
         return null
       }
       return prev
