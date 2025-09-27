@@ -22,7 +22,7 @@
   },
   {
     "id": "1749487929308aaqe6",
-    "name": "Participant/Age/Age",
+    "name": "Participant/Age/Average Age",
     "dataType": "Numeric",
     "description": "The average age of participant.",
     "includeInExtraction": true
