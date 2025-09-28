@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronUp } from "lucide-react"
-import type { Citation, ExtractionResultItem } from "@/lib/types"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ChevronDown, ChevronUp, Pencil, X, Check, Sparkles } from "lucide-react"
+import type { Citation, CodingSchemeItem, ExtractionResultItem } from "@/lib/types"
 
 const answerTypeStyles: Record<ExtractionResultItem["answerType"], string> = {
   Grounded: "bg-emerald-100 text-emerald-800 border-emerald-300",
@@ -31,6 +34,9 @@ interface ExtractionItemDisplayProps {
   item: ExtractionResultItem
   truncateLength?: number
   onCitationSelect?: (citation: Citation, index: number, allCitations: Citation[]) => void
+  editable?: boolean
+  dataType?: CodingSchemeItem["dataType"]
+  onSave?: (updatedItem: ExtractionResultItem) => void
 }
 
 export default function ExtractionItemDisplay({
@@ -38,8 +44,19 @@ export default function ExtractionItemDisplay({
   item,
   truncateLength = 100,
   onCitationSelect,
+  editable = false,
+  dataType,
+  onSave,
 }: ExtractionItemDisplayProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftValue, setDraftValue] = useState("")
+  const [draftAnswerType, setDraftAnswerType] = useState<ExtractionResultItem["answerType"]>(item.answerType)
+  const [draftReasoning, setDraftReasoning] = useState(item.reasoning ?? "")
+  const [error, setError] = useState<string | null>(null)
+
+  const dataKind = dataType ?? "Text"
+  const canEdit = editable && typeof onSave === "function"
 
   const valueAsString = Array.isArray(item.value)
     ? item.value.join("; ")
@@ -50,6 +67,86 @@ export default function ExtractionItemDisplay({
 
   const displayedValue = isLongText && !isExpanded ? `${valueAsString.substring(0, truncateLength)}...` : valueAsString
   const renderedValue = displayedValue === "" ? "—" : displayedValue
+
+  const parsedBooleanValue = useMemo(() => {
+    if (typeof item.value === "boolean") {
+      return item.value
+    }
+    if (typeof item.value === "string") {
+      if (item.value.toLowerCase() === "true") return true
+      if (item.value.toLowerCase() === "false") return false
+    }
+    return undefined
+  }, [item.value])
+
+  useEffect(() => {
+    setDraftAnswerType(item.answerType)
+    setDraftReasoning(item.reasoning ?? "")
+    setDraftValue(dataKind === "Boolean" ? String(parsedBooleanValue ?? "") : valueAsString)
+    setError(null)
+    setIsEditing(false)
+  }, [valueAsString, item.answerType, item.reasoning, dataKind, parsedBooleanValue])
+
+  const resetEditingState = () => {
+    setDraftAnswerType(item.answerType)
+    setDraftReasoning(item.reasoning ?? "")
+    setDraftValue(dataKind === "Boolean" ? String(parsedBooleanValue ?? "") : valueAsString)
+    setError(null)
+    setIsEditing(false)
+  }
+
+  const handleSave = () => {
+    if (!canEdit || !onSave) {
+      return
+    }
+
+    const nextItem: ExtractionResultItem = {
+      ...item,
+      manualOverride: true,
+    }
+
+    if (draftAnswerType === "Not Found") {
+      nextItem.value = "Not Found"
+      nextItem.answerType = "Not Found"
+      nextItem.reasoning = null
+      nextItem.citations = []
+      nextItem.confidence = null
+      onSave(nextItem)
+      resetEditingState()
+      return
+    }
+
+    if (dataKind === "Numeric") {
+      const trimmed = draftValue.trim()
+      if (trimmed === "") {
+        setError("Please enter a numeric value.")
+        return
+      }
+      const parsed = Number.parseFloat(trimmed)
+      if (Number.isNaN(parsed)) {
+        setError("Invalid number format.")
+        return
+      }
+      nextItem.value = parsed
+    } else if (dataKind === "Boolean") {
+      if (draftValue !== "true" && draftValue !== "false") {
+        setError("Select true or false.")
+        return
+      }
+      nextItem.value = draftValue === "true"
+    } else {
+      const normalized = draftValue.trim()
+      nextItem.value = normalized
+    }
+
+    nextItem.answerType = draftAnswerType
+    nextItem.citations = draftAnswerType === "Grounded" ? item.citations : []
+    nextItem.confidence = draftAnswerType === "Grounded" ? item.confidence : null
+    nextItem.reasoning = draftAnswerType === "Inference" ? draftReasoning.trim() || null : null
+
+    onSave(nextItem)
+    resetEditingState()
+  }
 
   return (
     <div className="p-2.5 bg-slate-50 dark:bg-slate-800/70 rounded-md border border-slate-200 dark:border-slate-700/50 shadow-sm">
@@ -62,17 +159,128 @@ export default function ExtractionItemDisplay({
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-medium uppercase tracking-wide ${answerTypeStyles[item.answerType]}`}
             >
-              {item.answerType === "Grounded" ? "Exact Quote" : item.answerType}
+              {item.answerType === "Grounded" ? "Direct Evidence" : item.answerType}
             </span>
+            {item.manualOverride && (
+              <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                <Sparkles className="h-3 w-3" /> Manual Override
+              </span>
+            )}
           </div>
         </div>
-        {typeof item.confidence === "number" &&
-          item.confidence !== null &&
-          item.confidence >= 0 &&
-          item.value !== "Not Found" && <ConfidenceIndicator score={item.confidence} />}
+        <div className="flex items-start gap-1">
+          {typeof item.confidence === "number" &&
+            item.confidence !== null &&
+            item.confidence >= 0 &&
+            item.value !== "Not Found" && <ConfidenceIndicator score={item.confidence} />}
+          {canEdit && !isEditing && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsEditing(true)
+                setDraftValue(
+                  dataKind === "Boolean"
+                    ? String(parsedBooleanValue ?? "")
+                    : dataKind === "Numeric"
+                      ? valueAsString
+                      : valueAsString,
+                )
+              }}
+              className="h-7 w-7 text-primary-jhuBlue dark:text-primary-jhuLightBlue"
+              title="Edit value"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
       {!(item.answerType === "Not Found" && valueAsString === "Not Found") && (
         <div className="mt-1 text-slate-800 dark:text-slate-100 break-words whitespace-pre-wrap">{renderedValue}</div>
+      )}
+      {isEditing && canEdit && (
+        <div className="mt-3 space-y-2 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-sm dark:border-slate-600 dark:bg-slate-800">
+          <div className="grid gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Value
+            </label>
+            {dataKind === "Text" ? (
+              <Textarea
+                value={draftValue}
+                onChange={(event) => setDraftValue(event.target.value)}
+                rows={3}
+                className="text-xs"
+              />
+            ) : dataKind === "Numeric" ? (
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={draftValue}
+                onChange={(event) => setDraftValue(event.target.value)}
+                className="text-xs"
+              />
+            ) : (
+              <Select value={draftValue} onValueChange={(value) => setDraftValue(value)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">True</SelectItem>
+                  <SelectItem value="false">False</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Answer Type
+            </label>
+            <Select
+              value={draftAnswerType}
+              onValueChange={(value: ExtractionResultItem["answerType"]) => setDraftAnswerType(value)}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Grounded">Grounded</SelectItem>
+                <SelectItem value="Inference">Inference</SelectItem>
+                <SelectItem value="Not Found">Not Found</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {draftAnswerType === "Inference" && (
+            <div className="grid gap-2">
+              <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Reasoning (optional)
+              </label>
+              <Textarea
+                value={draftReasoning}
+                onChange={(event) => setDraftReasoning(event.target.value)}
+                rows={2}
+                className="text-xs"
+              />
+            </div>
+          )}
+          {error && <p className="text-[11px] font-medium text-red-600 dark:text-red-400">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetEditingState}
+              className="h-7 px-2 text-xs text-slate-600 dark:text-slate-300"
+            >
+              <X className="mr-1 h-3.5 w-3.5" /> Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              className="h-7 bg-primary-jhuBlue px-2 text-xs text-white hover:bg-primary-jhuBlue/90 dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue"
+            >
+              <Check className="mr-1 h-3.5 w-3.5" /> Save
+            </Button>
+          </div>
+        </div>
       )}
       {isLongText && (
         <Button

@@ -334,6 +334,48 @@ export default function MetaMateChatPage() {
     [addMessage],
   )
 
+  const applyExtractionEdit = useCallback(
+    (messageId: string, historyId: string | undefined, field: string, updatedItem: ExtractionResultItem) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => {
+          if (msg.type !== "extraction-result" || !msg.data) {
+            return msg
+          }
+          const matchesHistory = historyId ? msg.historyId === historyId : false
+          const matchesMessage = msg.id === messageId
+          if (!matchesHistory && !matchesMessage) {
+            return msg
+          }
+          return {
+            ...msg,
+            data: {
+              ...msg.data,
+              [field]: { ...updatedItem },
+            },
+          }
+        }),
+      )
+
+      setExtractionHistory((prevHistory) =>
+        prevHistory.map((entry) => {
+          const matchesHistory = historyId ? entry.id === historyId : false
+          const matchesMessage = entry.messageId ? entry.messageId === messageId : false
+          if (!matchesHistory && !matchesMessage) {
+            return entry
+          }
+          return {
+            ...entry,
+            data: {
+              ...entry.data,
+              [field]: { ...updatedItem },
+            },
+          }
+        }),
+      )
+    },
+    [setMessages, setExtractionHistory],
+  )
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const newFiles = Array.from(event.target.files).filter((file) => file.type === "application/pdf")
@@ -394,6 +436,7 @@ export default function MetaMateChatPage() {
     try {
       // Call the real API with the file and full scheme (API will filter includeInExtraction)
       const extractedData = await callExtractionAPI(file, currentScheme)
+      const schemeSnapshot = currentScheme.map((item) => ({ ...item }))
 
       updateMessage(fileMessageId, {
         isProcessing: false,
@@ -401,6 +444,7 @@ export default function MetaMateChatPage() {
         data: extractedData,
         type: "extraction-result",
         pdfKey: fileKey,
+        codingSchemeUsed: schemeSnapshot,
       })
 
       const firstGroundedCitations =
@@ -409,7 +453,7 @@ export default function MetaMateChatPage() {
       if (firstGroundedCitations.length > 0) {
         selectPdfForViewer(fileKey, file.name, firstGroundedCitations, 0)
       }
-      return { fileName: file.name, status: "success", data: extractedData, pdfKey: fileKey }
+      return { fileName: file.name, status: "success", data: extractedData, pdfKey: fileKey, messageId: fileMessageId }
     } catch (error) {
       const errorMessage = (error as Error).message
       updateMessage(fileMessageId, {
@@ -418,7 +462,7 @@ export default function MetaMateChatPage() {
         type: "error",
         data: undefined,
       })
-      return { fileName: file.name, status: "error", errorMessage: errorMessage }
+      return { fileName: file.name, status: "error", errorMessage: errorMessage, messageId: fileMessageId }
     }
   }
 
@@ -450,8 +494,12 @@ export default function MetaMateChatPage() {
           timestamp: new Date(),
           codingSchemeUsed: schemeForThisBatch, // Store the scheme used for this specific extraction
           pdfKey: result.pdfKey,
+          messageId: result.messageId,
         }
         setExtractionHistory((prev) => [newHistoryEntry, ...prev.slice(0, 19)])
+        if (result.messageId) {
+          updateMessage(result.messageId, { historyId: newHistoryEntry.id })
+        }
       }
     })
 
@@ -538,6 +586,8 @@ export default function MetaMateChatPage() {
       fileSpecificMessage: "", // Removed verbose message to keep UI clean
       data: item.data,
       pdfKey: item.pdfKey,
+      codingSchemeUsed: item.codingSchemeUsed,
+      historyId: item.id,
     })
 
     const firstGroundedCitations =
@@ -661,16 +711,22 @@ export default function MetaMateChatPage() {
                               <CheckCircle2 className="inline h-4 w-4 mr-1 text-jhu-accent-4" /> Extracted Data:
                             </h4>
                             <div className="space-y-2 text-xs">
-                              {Object.entries(msg.data).map(([key, resultItem]) => (
-                                <ExtractionItemDisplay
-                                  key={key}
-                                  label={key}
-                                  item={resultItem}
-                                  onCitationSelect={(_, index, citations) =>
-                                    selectPdfForViewer(msg.pdfKey, msg.fileName, citations, index)
-                                  }
-                                />
-                              ))}
+                              {Object.entries(msg.data).map(([key, resultItem]) => {
+                                const schemeMatch = msg.codingSchemeUsed?.find((schemeItem) => schemeItem.name === key)
+                                return (
+                                  <ExtractionItemDisplay
+                                    key={key}
+                                    label={key}
+                                    item={resultItem}
+                                    dataType={schemeMatch?.dataType}
+                                    editable={msg.type === "extraction-result" && Boolean(msg.historyId)}
+                                    onSave={(updated) => applyExtractionEdit(msg.id, msg.historyId, key, updated)}
+                                    onCitationSelect={(_, index, citations) =>
+                                      selectPdfForViewer(msg.pdfKey, msg.fileName, citations, index)
+                                    }
+                                  />
+                                )
+                              })}
                             </div>
                           </div>
                         )}

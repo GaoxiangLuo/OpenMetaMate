@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +11,18 @@ class Settings:
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     # Default model, can be changed to any compatible LLM
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4.1-2025-04-14")
-    TEMPERATURE: float = 0.0
+
+    _temperature_env = os.getenv("LLM_TEMPERATURE")
+    if _temperature_env in (None, ""):
+        TEMPERATURE: Optional[float] = 0.0
+    else:
+        try:
+            TEMPERATURE = float(_temperature_env)
+        except ValueError:
+            logger.warning(
+                "⚠️ Invalid LLM_TEMPERATURE value '%s'; falling back to default", _temperature_env
+            )
+            TEMPERATURE = None
     SEED: int = 42
     TOP_P: float = 0.95
 
@@ -19,7 +30,7 @@ class Settings:
     CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "https://metamate.online").split(",")
 
     # Processing Configuration
-    TEXT_CHUNK_SIZE: int = 960000
+    TEXT_CHUNK_SIZE: int = 88_000
     TEXT_CHUNK_OVERLAP: int = 200
     MAX_FILE_SIZE_MB: float = float(os.getenv("MAX_FILE_SIZE_MB", 10))
     MAX_FILES_PER_BATCH: int = 100
@@ -35,6 +46,29 @@ class Settings:
     # Server Configuration
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8000
+
+    def resolve_temperature(self, model: str) -> Optional[float]:
+        """Return a temperature compatible with the configured model."""
+
+        if not model:
+            return self.TEMPERATURE
+
+        normalized_model = model.lower()
+        if normalized_model.startswith("gpt-5"):
+            if self.TEMPERATURE not in (None, 1.0):
+                logger.warning(
+                    "⚠️ Ignoring temperature %s for model %s; only the default is supported",
+                    self.TEMPERATURE,
+                    model,
+                )
+            return None
+
+        return self.TEMPERATURE
+
+    def use_responses_api(self, model: str) -> bool:
+        """Return True when the model should be called via the Responses API."""
+
+        return bool(model and model.lower().startswith("gpt-5"))
 
     def validate(self):
         """Validate required settings"""
@@ -70,8 +104,9 @@ class Settings:
 
         if self.TEXT_CHUNK_OVERLAP < 0:
             errors.append("TEXT_CHUNK_OVERLAP cannot be negative")
-        elif self.TEXT_CHUNK_OVERLAP >= self.TEXT_CHUNK_SIZE:
-            errors.append("TEXT_CHUNK_OVERLAP must be less than TEXT_CHUNK_SIZE")
+        effective_chunk_size = self.resolve_chunk_size(self.LLM_MODEL)
+        if self.TEXT_CHUNK_OVERLAP >= effective_chunk_size:
+            errors.append("TEXT_CHUNK_OVERLAP must be less than the resolved chunk size")
 
         # Validate CORS origins
         if not self.CORS_ORIGINS:
@@ -92,10 +127,24 @@ class Settings:
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         logger.info(f"  📄 Max file size: {self.MAX_FILE_SIZE_MB}MB")
-        logger.info(f"  📦 Chunk size: {self.TEXT_CHUNK_SIZE} tokens")
+        logger.info(f"  📦 Chunk size: {effective_chunk_size} characters")
         logger.info(f"  🌐 CORS origins: {self.CORS_ORIGINS}")
 
         return self
+
+    def resolve_chunk_size(self, model: str) -> int:
+        """Return a chunk size aligned with the configured model family."""
+
+        normalized_model = (model or "").lower()
+
+        if normalized_model.startswith("gpt-4.1"):
+            chunk_size = 960_000
+        elif normalized_model.startswith("gpt-5"):
+            chunk_size = 360_000
+        else:
+            chunk_size = self.TEXT_CHUNK_SIZE
+
+        return max(chunk_size, self.TEXT_CHUNK_OVERLAP + 1)
 
 
 settings = Settings()

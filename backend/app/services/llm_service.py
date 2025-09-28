@@ -34,6 +34,44 @@ Additional domain reminders:
 3. Treat boolean multi-label options independently (e.g., grade 3 and grade 4 can both be true).
 """
 
+GPT_5_SYSTEM_PROMPT = """Developer: # Role
+You are an expert analyst specializing in extracting structured data for educational systematic reviews and meta-analyses.
+
+Begin with a concise checklist (3-7 bullets) of what you will do; keep items conceptual, not implementation-level.
+
+# Input Format
+The user will provide documents rendered as plaintext, segmented with explicit page markers:
+```
+<<PAGE 12>>
+...page content...
+<<END PAGE 12>>
+```
+- The integer in the marker always represents the physical page index as reported by the PDF reader.
+- Never substitute or interpret page numbers found within the body text, and never renumber pages.
+- When referencing supporting evidence, always use the integer from the respective PAGE marker.
+
+# Extraction Output for Each Coding Scheme Field
+Return an object with:
+- `value`: The extracted answer, or null if unavailable.
+- `answer_type`: One of "Grounded" (specifically referenced), "Inference" (reasoned from context), or "Not Found".
+- `citations`: List of objects, each containing:
+    - `page_number` (integer, from the PAGE marker)
+    - `type` (either "Exact Quote" or "Inference"). Provide reasoning for any inference citations.
+- `confidence` (optional): Float between 0 and 1.
+- `reasoning` (optional): Additional explanation for context, especially when valuable for understanding.
+
+After each extraction, validate that the output strictly adheres to the required object structure and logic; if issues are detected, self-correct and retry.
+
+- If a field is absent, set `value` to null, `answer_type` to "Not Found", and leave `citations` empty.
+- Prefer "Grounded" answers when a specific PAGE marker can be referenced.
+- Only use "Inference" when direct evidence is lacking; briefly explain the basis for inference.
+
+# Domain Reminders
+1. If participant age is not stated, infer from grade level when possible but never report the grade itself as age.
+2. If both original and post-attrition sample sizes are provided, report the post-attrition figure.
+3. For boolean multi-label fields (e.g., grade 3 and grade 4), treat each option as separately true or false.
+"""
+
 
 class LLMService:
     """LLM integration service with structured output"""
@@ -72,18 +110,62 @@ class LLMService:
         try:
             logger.debug(f"📡 Sending request to LLM (text length: {len(text)} chars)")
 
-            completion = await self.client.chat.completions.parse(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": text},
-                ],
-                response_format=pydantic_model,
-                temperature=settings.TEMPERATURE,
-                seed=settings.SEED,
+            system_prompt = (
+                GPT_5_SYSTEM_PROMPT if settings.use_responses_api(self.model) else SYSTEM_PROMPT
             )
 
-            parsed_message = completion.choices[0].message.parsed
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text},
+            ]
+
+            temperature = settings.resolve_temperature(self.model)
+            use_responses_api = settings.use_responses_api(self.model)
+            parsed_message = None
+
+            responses_resource = getattr(self.client, "responses", None)
+            if use_responses_api and responses_resource is not None:
+                response_payload = {
+                    "model": self.model,
+                    "input": messages,
+                    "text_format": pydantic_model,
+                    "text": {"verbosity": "low"},
+                    "reasoning": {"effort": "minimal"},
+                }
+
+                if temperature is not None:
+                    response_payload["temperature"] = temperature
+
+                parse_callable = getattr(responses_resource, "parse", None)
+                if parse_callable is None:
+                    logger.warning(
+                        "⚠️ Responses API client detected without parse(); falling back to chat completions"
+                    )
+                else:
+                    response = await parse_callable(**response_payload)
+                    parsed_message = getattr(response, "output_parsed", None)
+                    if parsed_message is None:
+                        parsed_message = getattr(response, "parsed", None)
+
+            if parsed_message is None:
+                if use_responses_api and responses_resource is None:
+                    logger.warning(
+                        "⚠️ Responses API not available in current OpenAI client; falling back to chat completions"
+                    )
+
+                request_payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "response_format": pydantic_model,
+                    "seed": settings.SEED,
+                }
+
+                if temperature is not None:
+                    request_payload["temperature"] = temperature
+
+                completion = await self.client.chat.completions.parse(**request_payload)
+                parsed_message = completion.choices[0].message.parsed
+
             if parsed_message:
                 result = parsed_message.model_dump(mode="python")
                 logger.debug("✅ LLM extraction successful with structured output")

@@ -21,6 +21,7 @@ export interface ExtractionResultItem {
   answerType: "Grounded" | "Inference" | "Not Found"
   citations: Citation[]
   reasoning?: string | null
+  manualOverride?: boolean
 }
 
 export type ExtractionResult = Record<string, ExtractionResultItem>
@@ -35,6 +36,8 @@ export interface ChatMessage {
   timestamp: Date
   isProcessing?: boolean
   pdfKey?: string
+  codingSchemeUsed?: CodingSchemeItem[]
+  historyId?: string
 }
 
 export interface ExtractionHistoryItem {
@@ -44,6 +47,7 @@ export interface ExtractionHistoryItem {
   timestamp: Date
   codingSchemeUsed: CodingSchemeItem[] // Store the exact scheme used for this extraction
   pdfKey?: string
+  messageId?: string
 }
 
 export interface ProcessedFileResult {
@@ -52,4 +56,5 @@ export interface ProcessedFileResult {
   data?: ExtractionResult
   errorMessage?: string
   pdfKey?: string
+  messageId?: string
 }
