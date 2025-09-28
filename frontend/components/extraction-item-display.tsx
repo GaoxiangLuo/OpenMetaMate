@@ -179,13 +179,7 @@ export default function ExtractionItemDisplay({
               size="icon"
               onClick={() => {
                 setIsEditing(true)
-                setDraftValue(
-                  dataKind === "Boolean"
-                    ? String(parsedBooleanValue ?? "")
-                    : dataKind === "Numeric"
-                      ? valueAsString
-                      : valueAsString,
-                )
+                setDraftValue(dataKind === "Boolean" ? String(parsedBooleanValue ?? "") : valueAsString)
               }}
               className="h-7 w-7 text-primary-jhuBlue dark:text-primary-jhuLightBlue"
               title="Edit value"

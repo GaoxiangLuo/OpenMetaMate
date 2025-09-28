@@ -127,7 +127,7 @@ class Settings:
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         logger.info(f"  📄 Max file size: {self.MAX_FILE_SIZE_MB}MB")
-        logger.info(f"  📦 Chunk size: {effective_chunk_size} characters")
+        logger.info(f"  📦 Chunk size: {effective_chunk_size} tokens")
         logger.info(f"  🌐 CORS origins: {self.CORS_ORIGINS}")
 
         return self
