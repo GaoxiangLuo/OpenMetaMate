@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Copy, ExternalLink, Coffee } from "lucide-react"
+import { Copy, ExternalLink, Coffee, Heart } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface AuthorInfoModalProps {
@@ -68,7 +68,23 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                   Reviews and Meta-analyses
                 </h4>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
-                  <span className="font-medium">Xue Wang¹</span>, <span className="font-medium">Gaoxiang Luo²</span>
+                  <a
+                    href="https://xwang297.github.io/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-primary-jhuBlue hover:text-primary-jhuLightBlue dark:text-primary-jhuLightBlue dark:hover:text-primary-jhuBlue"
+                  >
+                    Xue Wang¹
+                  </a>
+                  ,
+                  <a
+                    href="https://gaoxiangluo.github.io/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1 font-medium text-primary-jhuBlue hover:text-primary-jhuLightBlue dark:text-primary-jhuLightBlue dark:hover:text-primary-jhuBlue"
+                  >
+                    Gaoxiang Luo²
+                  </a>
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-500 mb-3">
                   ¹Johns Hopkins University, ²University of Minnesota, Twin Cities
@@ -100,41 +116,62 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
               </h3>
               <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[09/2025]</span>
+                  <span>
+                    Shipped the two most-requested upgrades: grounded PDF navigation that jumps directly to cited pages
+                    and manual answer corrections that flow into CSV exports. Explore these enhancements in your next
+                    review!
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[09/2025]</span>
+                  <span>
+                    Thanks to{" "}
+                    <a
+                      href="https://zenbase.ai/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      Zenbase AI
+                    </a>{" "}
+                    for supporting our server hosting for 2025-2026.
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[06/2025]</span>
                   <span>
-                    MetaMate 2.0 will appear on the Society for Research on Educational Effectiveness (SREE) 2025
-                    conference in Chicago IL, USA on Octorber 8-11, 2025. We will highlight our new results on a
-                    large-scale public meta-analysis dataset, and various model choices including ones that can be
-                    hosted locally with a laptop.
+                    MetaMate 2.0 will appear on the Society for Research on Educational Effectiveness (
+                    <strong>SREE</strong>) 2025 conference in Chicago IL, USA on Octorber 8-11, 2025. We will highlight
+                    our new results on a large-scale public meta-analysis dataset, and models of various sizes including
+                    ones that can be hosted locally with a laptop.
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2024]</span>
                   <span>
-                    MetaMate 1.0 will appear on the American Educational Research Association (AERA) 2025 Annual Meeting
-                    in Denver CO, USA on April 25, 2025.
+                    MetaMate 1.0 will appear on the American Educational Research Association (<strong>AERA</strong>)
+                    2025 Annual Meeting in Denver CO, USA on April 25, 2025.
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[08/2024]</span>
                   <span>
                     MetaMate is now in Beta and completely free for everyone to use—explore, enjoy, and share your
-                    feedback to help us improve!{" "}
-                    <a href="/support" target="_blank" className="text-jhu-blue hover:underline">
-                      Support our work
-                    </a>{" "}
-                    to keep it free.
+                    feedback to help us improve!
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[07/2024]</span>
-                  <span>MetaMate has been accepted to OpenAI&apos;s Researcher Access Program.</span>
+                  <span>
+                    MetaMate has been accepted to <strong>OpenAI&apos;s Researcher Access Program</strong>.
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[06/2024]</span>
                   <span>
-                    MetaMate (PoC) will appear on the Society for Research on Educational Effectiveness (SREE) 2024
-                    conference in Baltimore MD, USA on September 18-21, 2024.
+                    MetaMate (PoC) will appear on the Society for Research on Educational Effectiveness (
+                    <strong>SREE</strong>) 2024 conference in Baltimore MD, USA on September 18-21, 2024.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -159,6 +196,24 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                   <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
                     <strong>Trustworthiness:</strong> include a confidence score for each extracted data element.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                  <span>
+                    <strong>PDF Viewer:</strong> clicking on a coding result will jump to the corresponding page.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                  <span>
+                    <strong>Citations:</strong> differentiate between direct evidence and high-level inference.
+                  </span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                  <span>
+                    <strong>Manual Correction:</strong> allow users to edit coding results before exporting.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
@@ -269,23 +324,52 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
 
             <section>
               <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
+                <Heart className="h-5 w-5 text-red-500" />
+                Supported by Zenbase AI
+              </h3>
+              <div className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                <p className="mb-2">
+                  We&apos;re grateful to{" "}
+                  <a
+                    href="https://zenbase.ai/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    Zenbase AI
+                  </a>{" "}
+                  for supporting our server hosting for 2025-2026, enabling us to keep MetaMate free and accessible to
+                  researchers worldwide.
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
                 <Coffee className="h-5 w-5 text-amber-600" />
                 Support MetaMate
               </h3>
               <div className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 <p className="mb-2">
-                  MetaMate is developed and maintained by Ph.D. students. If you find this tool helpful for your
-                  research, consider supporting our work to help keep it free and accessible for everyone.
+                  MetaMate is developed and maintained by PhD students. If you find this tool helpful for your research,
+                  consider citing our work and buying us a coffee.
                 </p>
               </div>
               <Button
                 variant="outline"
-                onClick={() => window.open("/support", "_blank")}
+                onClick={() => window.open("https://buymeacoffee.com/metamate", "_blank")}
                 className="text-sm text-amber-700 border-amber-600/70 hover:bg-amber-100 dark:text-amber-500 dark:border-amber-500/70 dark:hover:bg-amber-900/20"
               >
                 <Coffee className="mr-1.5 h-4 w-4" /> Buy Us a Coffee
               </Button>
             </section>
+
+            <div className="text-center pt-6 mt-6 border-t border-slate-200 dark:border-slate-700">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Developed at University of Minnesota and Johns Hopkins University
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">© 2025 MetaMate Authors</p>
+            </div>
           </div>
         </ScrollArea>
 

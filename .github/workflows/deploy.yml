@@ -17,6 +17,8 @@ on:
 env:
   AWS_REGION: us-east-1
   APP_NAME: metamate
+  LIGHTSAIL_POWER: medium
+  LIGHTSAIL_SCALE: 1
 
 jobs:
   # Test Backend
@@ -105,6 +107,25 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure Lightsail capacity tier
+        run: |
+          SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          CURRENT_SCALE=$(aws lightsail get-container-services \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --query 'containerServices[0].scale' \
+            --output text 2>/dev/null || echo "")
+
+          if [ -z "$CURRENT_SCALE" ] || [ "$CURRENT_SCALE" = "None" ]; then
+            CURRENT_SCALE="${{ env.LIGHTSAIL_SCALE }}"
+          fi
+
+          aws lightsail update-container-service \
+            --region ${{ env.AWS_REGION }} \
+            --service-name ${SERVICE_NAME} \
+            --power ${{ env.LIGHTSAIL_POWER }} \
+            --scale ${CURRENT_SCALE}
       
       - name: Install Lightsail plugin
         run: |

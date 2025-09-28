@@ -43,7 +43,7 @@ class BasePDFProcessor(ABC):
     """Abstract base class for PDF processors."""
 
     def __init__(self):
-        self.chunk_size = settings.TEXT_CHUNK_SIZE
+        self.chunk_size = settings.resolve_chunk_size(settings.LLM_MODEL)
         self.chunk_overlap = settings.TEXT_CHUNK_OVERLAP
 
     @abstractmethod
@@ -73,20 +73,31 @@ class BasePDFProcessor(ABC):
                 logger.warning("⚠️ No text to chunk")
                 return []
 
-            text_length = len(text)
-
-            # If text is small enough, don't chunk
-            if text_length <= self.chunk_size:
-                logger.info(f"📦 Text fits in single chunk ({text_length:,} chars)")
-                return [text]
-
-            logger.info(f"✂️ Splitting text ({text_length:,} chars) into chunks")
-            logger.debug(f"🔧 Chunk size: {self.chunk_size}, overlap: {self.chunk_overlap}")
-
             text_splitter = TokenTextSplitter(
                 chunk_size=self.chunk_size,
                 chunk_overlap=self.chunk_overlap,
             )
+
+            # TokenTextSplitter operates in token units, so we inspect the tokenizer
+            # directly to compare apples-to-apples with the configured chunk size.
+            token_length = len(
+                text_splitter._tokenizer.encode(  # type: ignore[attr-defined]
+                    text,
+                    allowed_special=text_splitter._allowed_special,  # type: ignore[attr-defined]
+                    disallowed_special=text_splitter._disallowed_special,  # type: ignore[attr-defined]
+                )
+            )
+
+            # If text is small enough, don't chunk
+            if token_length <= self.chunk_size:
+                logger.info(f"📦 Text fits in single chunk ({token_length:,} tokens)")
+                return [text]
+
+            logger.info(f"✂️ Splitting text ({token_length:,} tokens) into chunks")
+            logger.debug(
+                f"🔧 Chunk size: {self.chunk_size} tokens, overlap: {self.chunk_overlap} tokens"
+            )
+
             chunks = text_splitter.split_text(text)
 
             logger.info(f"✅ Created {len(chunks)} chunks")

@@ -21,10 +21,10 @@ environment = "prod"        # prod, staging, or dev
 # Container sizing (monthly costs)
 # - nano: 0.5GB RAM, 0.25 vCPU ($7/month)
 # - micro: 1GB RAM, 0.5 vCPU ($10/month)  
-# - small: 2GB RAM, 1 vCPU ($25/month) <- Recommended
-# - medium: 4GB RAM, 2 vCPU ($50/month)
+# - small: 2GB RAM, 1 vCPU ($25/month)
+# - medium: 4GB RAM, 2 vCPU ($50/month) <- Recommended for production
 # - large: 8GB RAM, 4 vCPU ($100/month)
-container_service_power = "small"
+container_service_power = "medium"
 container_service_scale = 1  # Number of instances
 
 # Budget alerts (optional)
