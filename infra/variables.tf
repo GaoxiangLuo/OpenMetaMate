@@ -39,7 +39,7 @@ variable "app_name" {
 variable "container_service_power" {
   description = "Lightsail container service power (nano/micro/small/medium/large/xlarge)"
   type        = string
-  default     = "small" # 2GB RAM, 1 vCPU = $25/month
+  default     = "medium" # 4GB RAM, 2 vCPU = $50/month
 }
 
 variable "container_service_scale" {
