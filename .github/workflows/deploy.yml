@@ -161,6 +161,7 @@ jobs:
       - name: Deploy container
         run: |
           SERVICE_NAME="${{ env.APP_NAME }}-backend"
+          CERT_NAME="${{ secrets.LIGHTSAIL_CERT_NAME }}"
           
           # Create container configuration
           cat > containers.json <<EOF
@@ -183,8 +184,26 @@ jobs:
           }
           EOF
           
-          # Create endpoint configuration
-          cat > endpoint.json <<EOF
+          # Create endpoint configuration (attach certificate when provided)
+          if [ -n "$CERT_NAME" ]; then
+            cat > endpoint.json <<EOF
+          {
+            "containerName": "api",
+            "containerPort": 8000,
+            "healthCheck": {
+              "healthyThreshold": 2,
+              "unhealthyThreshold": 2,
+              "timeoutSeconds": 5,
+              "intervalSeconds": 30,
+              "path": "/health",
+              "successCodes": "200-299"
+            },
+            "certificateName": "$CERT_NAME",
+            "httpsRedirect": true
+          }
+          EOF
+          else
+            cat > endpoint.json <<EOF
           {
             "containerName": "api",
             "containerPort": 8000,
@@ -198,7 +217,8 @@ jobs:
             }
           }
           EOF
-          
+          fi
+  
           # Deploy
           aws lightsail create-container-service-deployment \
             --region ${{ env.AWS_REGION }} \
