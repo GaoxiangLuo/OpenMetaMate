@@ -641,7 +641,7 @@ export default function MetaMateChatPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open('https://metamate.statuspage.io/', '_blank')}
+                    onClick={() => window.open("https://metamate.statuspage.io/", "_blank")}
                     className="text-xs py-1 px-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/80"
                   >
                     <Activity className="mr-1 h-3.5 w-3.5" /> Status
