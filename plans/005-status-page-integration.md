@@ -33,7 +33,7 @@ Integrated statuspage.io monitoring into OpenMetaMate with automated health chec
 **File**: `.github/workflows/statuspage-monitor.yml`
 
 **Created automated monitoring workflow that**:
-- Runs every 5 minutes (cron schedule)
+- Runs once daily at 9:00 AM UTC (cron schedule)
 - Checks backend health at `https://api.metamate.online/health`
 - Updates statuspage.io component status via API
 - Supports manual triggering via `workflow_dispatch`
@@ -65,7 +65,7 @@ Integrated statuspage.io monitoring into OpenMetaMate with automated health chec
 ## How It Works
 
 ```
-Every 5 minutes:
+Once daily (9:00 AM UTC):
 
 GitHub Actions → Checks https://api.metamate.online/health
                ↓
@@ -99,7 +99,7 @@ See: 🟢 Backend API - Operational
 
 ### GitHub Actions
 - **Workflow**: `.github/workflows/statuspage-monitor.yml`
-- **Schedule**: Every 5 minutes (`*/5 * * * *`)
+- **Schedule**: Daily at 9:00 AM UTC (`0 9 * * *`)
 - **Trigger**: Automatic (cron) + Manual (workflow_dispatch)
 
 ---
@@ -117,8 +117,9 @@ See: 🟢 Backend API - Operational
 
 1. **Merge PR to main**: To enable automatic cron schedule
 2. **Add GitHub Secrets**: In repository settings
-3. **Verify automation**: Check workflow runs every 5 minutes
+3. **Verify automation**: Check workflow runs daily at 9:00 AM UTC
 4. **Monitor status page**: https://metamate.statuspage.io/
+5. **Manual trigger**: Use workflow_dispatch anytime for immediate status check
 
 ---
 
@@ -130,8 +131,7 @@ See: 🟢 Backend API - Operational
 **Created**:
 - `.github/workflows/statuspage-monitor.yml` - Automated monitoring
 - `scripts/test-statuspage-api.sh` - API testing tool
-- `plans/status-page-integration.md` - This document
-- `plans/statuspage-custom-design.md` - Custom CSS/HTML (optional)
+- `plans/005-status-page-integration.md` - This document
 
 **Deleted**:
 - `backend/healthcheck.sh` - Not needed (using GitHub Actions)

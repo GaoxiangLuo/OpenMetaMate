@@ -2,8 +2,8 @@ name: StatusPage Monitor
 
 on:
   schedule:
-    # Run every 5 minutes
-    - cron: '*/5 * * * *'
+    # Run once daily at 9:00 AM UTC (adjustable)
+    - cron: '0 9 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
