@@ -1,0 +1,52 @@
+name: StatusPage Monitor
+
+on:
+  schedule:
+    # Run every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Backend Health
+        id: health_check
+        run: |
+          echo "Checking backend health..."
+
+          # Try to fetch health endpoint
+          if curl -f -s -m 10 https://api.metamate.online/health > /tmp/health.json; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "✅ Backend is healthy"
+            cat /tmp/health.json
+          else
+            echo "status=down" >> $GITHUB_OUTPUT
+            echo "❌ Backend is down or unreachable"
+          fi
+
+      - name: Update StatusPage Component
+        env:
+          STATUSPAGE_API_KEY: ${{ secrets.STATUSPAGE_API_KEY }}
+          STATUSPAGE_PAGE_ID: ${{ secrets.STATUSPAGE_PAGE_ID }}
+          STATUSPAGE_COMPONENT_ID: ${{ secrets.STATUSPAGE_COMPONENT_ID }}
+        run: |
+          # Map health check result to statuspage.io status
+          if [ "${{ steps.health_check.outputs.status }}" = "healthy" ]; then
+            COMPONENT_STATUS="operational"
+          else
+            COMPONENT_STATUS="major_outage"
+          fi
+
+          echo "Updating statuspage.io component to: $COMPONENT_STATUS"
+
+          # Update component via API
+          curl -X PATCH \
+            "https://api.statuspage.io/v1/pages/${STATUSPAGE_PAGE_ID}/components/${STATUSPAGE_COMPONENT_ID}" \
+            -H "Authorization: OAuth ${STATUSPAGE_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"component\":{\"status\":\"${COMPONENT_STATUS}\"}}" \
+            -s | python3 -m json.tool
+
+          echo "✅ StatusPage updated successfully"
