@@ -74,7 +74,7 @@ jobs:
       
       - name: Install dependencies
         working-directory: frontend
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       
       - name: Run linting
         working-directory: frontend
@@ -281,7 +281,7 @@ jobs:
           
           # Install dependencies
           cd frontend
-          pnpm install --no-frozen-lockfile
+          pnpm install --frozen-lockfile
           
           # Build with the correct API URL
           export NEXT_PUBLIC_API_URL="${API_URL}"
