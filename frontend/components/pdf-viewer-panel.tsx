@@ -34,9 +34,18 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
   const [zoomMultiplier, setZoomMultiplier] = useState<number>(1)
   const [pageLabels, setPageLabels] = useState<string[] | null>(null)
   const viewerContainerRef = useRef<HTMLDivElement>(null)
+  const isMountedRef = useRef<boolean>(true)
 
   const safeIndex = citations.length > 0 ? Math.min(activeIndex, citations.length - 1) : 0
   const activeCitation = citations[safeIndex]
+
+  // Cleanup effect to track component mount status
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!fileUrl) {
@@ -282,6 +291,9 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
                 pdf
                   .getPageLabels()
                   .then((labels: string[] | null) => {
+                    // Only update state if component is still mounted
+                    if (!isMountedRef.current) return
+
                     if (Array.isArray(labels) && labels.length === pages) {
                       setPageLabels(labels)
                     } else {
@@ -289,6 +301,9 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
                     }
                   })
                   .catch((error: Error) => {
+                    // Only update state if component is still mounted
+                    if (!isMountedRef.current) return
+
                     console.warn("Failed to load page labels", error)
                     setPageLabels(null)
                   })
