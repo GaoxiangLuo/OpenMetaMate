@@ -85,9 +85,13 @@ class LLMService:
         self.client = AsyncOpenAI(
             base_url=settings.LLM_API_URL,
             api_key=settings.LLM_API_KEY,
+            timeout=300.0,  # 5 minute timeout for LLM API calls (complex PDFs need time)
+            max_retries=2,  # Retry failed requests twice for transient errors
         )
         self.model = settings.LLM_MODEL
-        logger.info(f"🤖 LLM Service initialized with model: {self.model}")
+        logger.info(
+            f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
+        )
 
     async def extract_with_schema(
         self, text: str, coding_scheme: List[Dict[str, Any]]

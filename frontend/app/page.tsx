@@ -127,80 +127,163 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
   return [headerRow, ...dataRows].join("\n")
 }
 
-// Call the FastAPI backend for real extraction
-const callExtractionAPI = async (file: File, scheme: CodingSchemeItem[]): Promise<ExtractionResult> => {
+// Call the FastAPI backend for real extraction using streaming (bypasses 60s Lightsail timeout)
+const callExtractionAPI = async (
+  file: File,
+  scheme: CodingSchemeItem[],
+  onProgress?: (message: string, progress: number) => void,
+): Promise<ExtractionResult> => {
   const formData = new FormData()
   formData.append("pdf_file", file)
   formData.append("coding_scheme", JSON.stringify(scheme))
 
-  console.log(`Calling extraction API: ${config.apiUrl}/api/v1/extract`)
-  const response = await fetch(`${config.apiUrl}/api/v1/extract`, {
-    method: "POST",
-    body: formData,
-  })
+  console.log(`Calling streaming extraction API: ${config.apiUrl}/api/v1/extract/stream`)
+  console.log(`File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
 
-  if (!response.ok) {
-    console.error(`API call failed with status: ${response.status}`)
-    const errorData = await response.json().catch(() => ({ detail: "Unknown error" }))
-    console.error("Error details:", errorData)
+  // Create an AbortController for timeout handling (10 minutes for streaming)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 600000) // 10 minute timeout
 
-    // Provide more specific error messages based on status code
-    if (response.status === 429) {
-      throw new Error("Rate limit exceeded. Maximum 10 files per minute. Please wait before trying again.")
-    } else if (response.status === 413) {
-      throw new Error("File too large. Maximum file size is 10MB.")
-    } else if (response.status === 401) {
-      throw new Error("API authentication failed. Please check the API key configuration.")
-    } else if (response.status === 422) {
-      throw new Error(
-        errorData.detail || "Failed to process the PDF. The file might be corrupted or contain no extractable text.",
-      )
-    } else if (response.status === 504) {
-      throw new Error("Request timed out. The PDF might be too large or complex.")
-    } else {
-      throw new Error(errorData.detail || `Server error (${response.status}). Please try again.`)
-    }
-  }
+  try {
+    const response = await fetch(`${config.apiUrl}/api/v1/extract/stream`, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+      mode: "cors",
+      credentials: "include",
+    })
 
-  const result = await response.json()
+    if (!response.ok) {
+      clearTimeout(timeoutId)
+      console.error(`API call failed with status: ${response.status}`)
+      const errorData = await response.json().catch(() => ({ detail: "Unknown error" }))
+      console.error("Error details:", errorData)
 
-  // Check if the response has valid data
-  if (!result || !result.extractedData) {
-    throw new Error("Invalid response from server: No extraction data received")
-  }
-
-  // Convert the API response format to match the UI expected format
-  const extractedData: ExtractionResult = {}
-  let allNotFound = true
-  let hasData = false
-
-  for (const [key, item] of Object.entries(result.extractedData)) {
-    const resultItem = item as ExtractionResultItem
-    extractedData[key] = {
-      value: resultItem.value,
-      confidence: resultItem.confidence ?? null,
-      answerType: resultItem.answerType,
-      citations: (resultItem.citations ?? []).map((citation) => ({
-        pageNumber: citation.pageNumber,
-        type: citation.type,
-        reasoning: citation.reasoning ?? null,
-      })),
-      reasoning: resultItem.reasoning ?? null,
+      // Provide more specific error messages based on status code
+      if (response.status === 429) {
+        throw new Error("Rate limit exceeded. Maximum 20 files per minute. Please wait before trying again.")
+      } else if (response.status === 413) {
+        throw new Error("File too large. Maximum file size is 10MB.")
+      } else if (response.status === 401) {
+        throw new Error("API authentication failed. Please check the API key configuration.")
+      } else if (response.status === 422) {
+        throw new Error(
+          errorData.detail || "Failed to process the PDF. The file might be corrupted or contain no extractable text.",
+        )
+      } else if (response.status === 504) {
+        throw new Error("Request timed out. The PDF might be too large or complex.")
+      } else {
+        throw new Error(errorData.detail || `Server error (${response.status}). Please try again.`)
+      }
     }
 
-    // Check if any value is not "Not Found"
-    if (resultItem.answerType !== "Not Found") {
-      allNotFound = false
+    // Process streaming response (newline-delimited JSON)
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ""
+    let finalResult: ExtractionResult | null = null
+
+    if (!reader) {
+      throw new Error("Response body is not readable")
     }
-    hasData = true
-  }
 
-  // If all fields are "Not Found", treat it as an error
-  if (hasData && allNotFound) {
-    throw new Error("Extraction failed: No data could be extracted from the document. This may be due to an API error.")
-  }
+    while (true) {
+      const { done, value } = await reader.read()
 
-  return extractedData
+      if (done) {
+        break
+      }
+
+      // Append chunk to buffer
+      buffer += decoder.decode(value, { stream: true })
+
+      // Process complete lines
+      const lines = buffer.split("\n")
+      buffer = lines.pop() || "" // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+
+        try {
+          const event = JSON.parse(line)
+
+          if (event.type === "progress") {
+            console.log(`Progress: ${event.progress}% - ${event.message}`)
+            onProgress?.(event.message, event.progress)
+          } else if (event.type === "heartbeat") {
+            console.log(`Heartbeat: ${event.elapsed}s elapsed`)
+          } else if (event.type === "complete") {
+            console.log("Extraction complete!")
+            const result = event.data
+
+            // Convert the API response format to match the UI expected format
+            const extractedData: ExtractionResult = {}
+            let allNotFound = true
+            let hasData = false
+
+            for (const [key, item] of Object.entries(result.extractedData)) {
+              const resultItem = item as ExtractionResultItem
+              extractedData[key] = {
+                value: resultItem.value,
+                confidence: resultItem.confidence ?? null,
+                answerType: resultItem.answerType,
+                citations: (resultItem.citations ?? []).map((citation: Citation) => ({
+                  pageNumber: citation.pageNumber,
+                  type: citation.type,
+                  reasoning: citation.reasoning ?? null,
+                })),
+                reasoning: resultItem.reasoning ?? null,
+              }
+
+              // Check if any value is not "Not Found"
+              if (resultItem.answerType !== "Not Found") {
+                allNotFound = false
+              }
+              hasData = true
+            }
+
+            // If all fields are "Not Found", treat it as an error
+            if (hasData && allNotFound) {
+              throw new Error(
+                "Extraction failed: No data could be extracted from the document. This may be due to an API error.",
+              )
+            }
+
+            finalResult = extractedData
+          } else if (event.type === "error") {
+            throw new Error(event.message || "Extraction failed")
+          }
+        } catch (parseError) {
+          console.error("Error parsing streaming event:", parseError, "Line:", line)
+        }
+      }
+    }
+
+    clearTimeout(timeoutId)
+
+    if (!finalResult) {
+      throw new Error("Extraction did not complete successfully")
+    }
+
+    return finalResult
+  } catch (error) {
+    clearTimeout(timeoutId)
+
+    // Handle network errors
+    if (error instanceof Error) {
+      if (error.name === "AbortError") {
+        throw new Error(
+          "Request timed out after 10 minutes. The PDF is extremely complex. Please try with a simpler coding scheme or smaller PDF.",
+        )
+      }
+      if (error.message.includes("NetworkError") || error.message.includes("Failed to fetch")) {
+        throw new Error(
+          "Network error: Unable to connect to the API server. Please check your internet connection and try again. If the issue persists, the server might be temporarily unavailable.",
+        )
+      }
+    }
+    throw error
+  }
 }
 
 export default function MetaMateChatPage() {
@@ -436,7 +519,13 @@ export default function MetaMateChatPage() {
 
     try {
       // Call the real API with the file and full scheme (API will filter includeInExtraction)
-      const extractedData = await callExtractionAPI(file, currentScheme)
+      // Use streaming endpoint to bypass Lightsail 60s timeout limit
+      const extractedData = await callExtractionAPI(file, currentScheme, (message, progress) => {
+        // Update progress in real-time
+        updateMessage(fileMessageId, {
+          fileSpecificMessage: `${message} (${progress}%)`,
+        })
+      })
       const schemeSnapshot = currentScheme.map((item) => ({ ...item }))
 
       updateMessage(fileMessageId, {

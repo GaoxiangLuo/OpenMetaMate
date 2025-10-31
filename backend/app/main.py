@@ -41,13 +41,36 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
+# Note: Using allow_credentials=True requires specific origins, not "*"
+# This is critical for cross-origin requests from the frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+
+# Add middleware to log CORS requests for debugging
+@app.middleware("http")
+async def log_cors_requests(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(f"🌐 CORS request from origin: {origin} to path: {request.url.path}")
+        logger.info(f"   Method: {request.method}, Headers: {dict(request.headers)}")
+
+    response = await call_next(request)
+
+    if origin:
+        logger.info(f"   Response status: {response.status_code}")
+        cors_headers = [h for h in response.headers.items() if "access-control" in h[0].lower()]
+        logger.info(f"   CORS headers: {cors_headers}")
+
+    return response
+
 
 # Include routes
 app.include_router(health.router, tags=["health"])
