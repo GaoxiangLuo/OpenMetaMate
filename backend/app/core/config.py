@@ -35,6 +35,9 @@ class Settings:
     MAX_FILE_SIZE_MB: float = float(os.getenv("MAX_FILE_SIZE_MB", 10))
     MAX_FILES_PER_BATCH: int = 100
 
+    # Rate Limiting Configuration
+    EXTRACTION_RATE_LIMIT_PER_MINUTE: int = 20  # PDFs per minute for extraction endpoints
+
     # PDF Processor Configuration
     # Options: pypdf, docling, mineru, mathpix, textract
     PDF_PROCESSOR: str = os.getenv("PDF_PROCESSOR", "pypdf")

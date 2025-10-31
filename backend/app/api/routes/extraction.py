@@ -221,7 +221,7 @@ def get_pdf_processor():
 
 
 @router.post("/extract", response_model=ExtractionResponse)
-@limiter.limit("20 per minute")
+@limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
 async def extract_data(
     request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
 ):
@@ -433,7 +433,7 @@ async def extract_data(
 
 
 @router.post("/extract/stream")
-@limiter.limit("20 per minute")
+@limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
 async def extract_data_stream(
     request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
 ):
@@ -583,6 +583,7 @@ async def extract_data_stream(
             # Process chunks with LLM
             llm_service = LLMService()
             chunk_results_list = []
+            failed_chunks = []
 
             for i, chunk in enumerate(chunks):
                 # Send heartbeat every 20 seconds to keep connection alive
@@ -612,8 +613,34 @@ async def extract_data_stream(
                     )
                     chunk_results_list.append(result)
                 except Exception as e:
-                    logger.error(f"❌ Error processing chunk {i+1}: {e}")
+                    error_msg = str(e)
+                    # Log detailed error for engineers
+                    logger.error(
+                        f"❌ Error processing chunk {i + 1}/{len(chunks)}: {error_msg}",
+                        exc_info=True,
+                    )
+                    failed_chunks.append(i + 1)
                     chunk_results_list.append({})
+
+            # If ALL chunks failed, abort the extraction
+            if len(failed_chunks) == len(chunks):
+                error_message = (
+                    "Unable to process the document. "
+                    "Please try again or contact support if the issue persists."
+                )
+                logger.error(
+                    f"💥 Complete extraction failure: All {len(chunks)} chunks failed. "
+                    f"Failed chunks: {failed_chunks}"
+                )
+                yield json.dumps({"type": "error", "message": error_message}) + "\n"
+                return
+
+            # Log partial failures for engineering diagnostics (not shown to user)
+            if failed_chunks:
+                logger.warning(
+                    f"⚠️ Partial extraction: {len(failed_chunks)}/{len(chunks)} chunks failed. "
+                    f"Failed chunks: {failed_chunks}. Results may be incomplete."
+                )
 
             yield (
                 json.dumps(
@@ -670,13 +697,13 @@ async def extract_data_stream(
 
             # Send final result
             total_items = found_count + not_found_count
+
             result = ExtractionResponse(
                 fileName=pdf_file.filename,
                 extractedData=extracted_data,
                 status="success",
                 message=(
-                    f"Extraction completed successfully. "
-                    f"Found {found_count}/{total_items} items."
+                    f"Extraction completed successfully. Found {found_count}/{total_items} items."
                 ),
             )
 

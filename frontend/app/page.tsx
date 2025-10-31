@@ -161,7 +161,9 @@ const callExtractionAPI = async (
 
       // Provide more specific error messages based on status code
       if (response.status === 429) {
-        throw new Error("Rate limit exceeded. Maximum 20 files per minute. Please wait before trying again.")
+        throw new Error(
+          `Rate limit exceeded. Maximum ${config.EXTRACTION_RATE_LIMIT_PER_MINUTE} files per minute. Please wait before trying again.`,
+        )
       } else if (response.status === 413) {
         throw new Error("File too large. Maximum file size is 10MB.")
       } else if (response.status === 401) {
@@ -254,7 +256,18 @@ const callExtractionAPI = async (
             throw new Error(event.message || "Extraction failed")
           }
         } catch (parseError) {
+          // JSON parse error - could indicate server sent malformed data
           console.error("Error parsing streaming event:", parseError, "Line:", line)
+
+          // If line looks like it might contain error information, try to extract it
+          if (line.toLowerCase().includes("error") || line.toLowerCase().includes("exception")) {
+            throw new Error(
+              `Server sent malformed response. This may indicate a server error. Raw message: ${line.substring(0, 200)}`,
+            )
+          }
+
+          // Otherwise, log and continue (might just be a partial/corrupted chunk)
+          console.warn("Skipping malformed event line, continuing stream...")
         }
       }
     }
