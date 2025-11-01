@@ -12,6 +12,10 @@ class Settings:
     # Default model, can be changed to any compatible LLM
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4.1-2025-04-14")
 
+    # Backup LLM Configuration (optional, for failover)
+    # Uses same LLM_API_URL and LLM_MODEL, only key differs
+    BACKUP_LLM_API_KEY: Optional[str] = os.getenv("BACKUP_LLM_API_KEY", None)
+
     _temperature_env = os.getenv("LLM_TEMPERATURE")
     if _temperature_env in (None, ""):
         TEMPERATURE: Optional[float] = 0.0
@@ -128,6 +132,7 @@ class Settings:
         logger.info("✅ Configuration validated successfully")
         logger.info("🔧 Settings summary:")
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
+        logger.info(f"  🔄 Backup API: {'Enabled' if self.BACKUP_LLM_API_KEY else 'Disabled'}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         logger.info(f"  📄 Max file size: {self.MAX_FILE_SIZE_MB}MB")
         logger.info(f"  📦 Chunk size: {effective_chunk_size} tokens")

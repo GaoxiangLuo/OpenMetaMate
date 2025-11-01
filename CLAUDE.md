@@ -40,8 +40,9 @@ docker-compose up
 
 # Environment setup required: Create .env file with:
 # LLM_API_KEY=your-api-key
-# LLM_API_URL=https://api.openai.com/v1  
+# LLM_API_URL=https://api.openai.com/v1
 # LLM_MODEL=gpt-4o-2025-08-13
+# BACKUP_LLM_API_KEY=your-backup-api-key  # Optional: for automatic failover
 # CORS_ORIGINS=http://localhost:3000
 # MAX_FILE_SIZE_MB=10
 # PDF_PROCESSOR=pypdf
@@ -66,9 +67,12 @@ docker-compose up
    - Implementation: `backend/app/services/pdf_processor.py`
    - Factory selection based on configuration
 
-2. **LLM Service Layer**: Abstracted LLM integration supporting multiple providers
+2. **LLM Service Layer**: Abstracted LLM integration with automatic failover
    - Implementation: `backend/app/services/llm_service.py`
    - Supports OpenAI, Anthropic, OpenRouter, and self-hosted models
+   - **Automatic Failover**: Configure `BACKUP_LLM_API_KEY` for redundancy
+   - Failover triggers: HTTP 429 (rate limit/quota), 5xx (server errors)
+   - Same URL/model for backup, only API key differs
 
 3. **Component Architecture**: Composition pattern with Radix UI primitives
    - UI components: `frontend/components/ui/`
@@ -77,6 +81,15 @@ docker-compose up
 4. **Configuration Management**: Environment-based with validation
    - Backend: `backend/app/core/config.py` using Pydantic
    - Frontend: `frontend/lib/config.ts` with TypeScript interfaces
+
+5. **Stage-Based Logging**: 6-stage pipeline logging for debugging
+   - STAGE 1: Request validation (file type, size)
+   - STAGE 2: Coding scheme parsing
+   - STAGE 3: PDF text extraction
+   - STAGE 4: LLM extraction (with primary/backup API tracking)
+   - STAGE 5: Output post-processing/transformation
+   - STAGE 6: Response complete
+   - Use `grep "STAGE"` or `grep "❌"` to quickly identify failure points
 
 ## Development Guidelines
 

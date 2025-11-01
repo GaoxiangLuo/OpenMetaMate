@@ -10,6 +10,10 @@ llm_api_key = "sk-proj-YOUR_API_KEY_HERE"
 llm_api_url = "https://api.openai.com/v1"  # Or use Anthropic, OpenRouter, etc.
 llm_model   = "gpt-4o"                     # Or claude-3-opus, etc.
 
+# Optional: Backup LLM API Key (for automatic failover)
+# Recommended: Use a different OpenAI account for redundancy
+# backup_llm_api_key = "sk-proj-YOUR_BACKUP_API_KEY_HERE"
+
 # Your domain configuration
 domain_name = "metamate.online"  # Your domain from CloudFlare
 enable_cdn  = true               # Enable CloudFront CDN (recommended)

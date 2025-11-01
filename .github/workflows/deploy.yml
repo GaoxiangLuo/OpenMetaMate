@@ -177,6 +177,7 @@ jobs:
                 "LLM_API_KEY": "${{ secrets.LLM_API_KEY }}",
                 "LLM_API_URL": "${{ secrets.LLM_API_URL }}",
                 "LLM_MODEL": "${{ secrets.LLM_MODEL }}",
+                "BACKUP_LLM_API_KEY": "${{ secrets.BACKUP_LLM_API_KEY }}",
                 "CORS_ORIGINS": "https://${{ secrets.CUSTOM_DOMAIN }},https://www.${{ secrets.CUSTOM_DOMAIN }}"
               }
             }

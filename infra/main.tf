@@ -68,9 +68,10 @@ resource "aws_secretsmanager_secret" "app_secrets" {
 resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
-    LLM_API_KEY = var.llm_api_key
-    LLM_API_URL = var.llm_api_url
-    LLM_MODEL   = var.llm_model
+    LLM_API_KEY        = var.llm_api_key
+    LLM_API_URL        = var.llm_api_url
+    LLM_MODEL          = var.llm_model
+    BACKUP_LLM_API_KEY = var.backup_llm_api_key
   })
 }
 

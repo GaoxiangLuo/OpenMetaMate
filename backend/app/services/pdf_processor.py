@@ -117,10 +117,10 @@ class PyPDFProcessor(BasePDFProcessor):
 
         def _extract():
             if not pdf_content:
-                logger.error("📄 Empty PDF content provided")
+                logger.error("❌ [STAGE 3/6] Empty PDF content provided")
                 raise PDFProcessingError("Empty PDF content")
 
-            logger.info(f"📄 Processing PDF ({len(pdf_content):,} bytes)")
+            logger.info("📄 [STAGE 3/6] Starting PDF text extraction...")
 
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
                 tmp_file.write(pdf_content)
@@ -152,16 +152,18 @@ class PyPDFProcessor(BasePDFProcessor):
                 input_text = "\n\n".join(annotated_parts)
 
                 if not input_text.strip():
-                    logger.warning("⚠️ PDF contains no extractable text")
+                    logger.warning("❌ [STAGE 3/6] PDF contains no extractable text")
                     raise PDFProcessingError("No text could be extracted from PDF")
 
-                logger.info(f"✅ Successfully extracted {len(input_text):,} characters from PDF")
+                logger.info(
+                    f"✅ [STAGE 3/6] PDF extracted - {len(pages)} pages, {len(input_text):,} chars"
+                )
                 return PDFExtractionResult(full_text=input_text, pages=page_sections)
 
             except PDFProcessingError:
                 raise
             except Exception as e:
-                logger.error(f"❌ PyPDF extraction failed: {e}", exc_info=True)
+                logger.error(f"❌ [STAGE 3/6] PDF extraction failed: {e}", exc_info=True)
                 raise PDFProcessingError(f"Failed to extract text from PDF: {e}")
 
             finally:
