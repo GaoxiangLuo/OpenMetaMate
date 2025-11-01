@@ -446,10 +446,11 @@ async def extract_data_stream(
     - {"type": "error", "message": "..."}
     """
 
+    logger.info(f"📥 [STREAM] New extraction request for file: {pdf_file.filename}")
+
     async def event_generator():
         """Generate progress events during extraction"""
         start_time = time.time()
-        last_heartbeat = time.time()
 
         try:
             yield (
@@ -586,15 +587,6 @@ async def extract_data_stream(
             failed_chunks = []
 
             for i, chunk in enumerate(chunks):
-                # Send heartbeat every 20 seconds to keep connection alive
-                current_time = time.time()
-                if current_time - last_heartbeat > 20:
-                    yield (
-                        json.dumps({"type": "heartbeat", "elapsed": int(current_time - start_time)})
-                        + "\n"
-                    )
-                    last_heartbeat = current_time
-
                 progress = 50 + int((i / len(chunks)) * 40)  # 50-90%
                 yield (
                     json.dumps(
@@ -607,11 +599,30 @@ async def extract_data_stream(
                     + "\n"
                 )
 
+                # Process chunk with heartbeats every 15s during LLM call
                 try:
-                    result = await llm_service.extract_with_schema(
-                        chunk, [item.model_dump() for item in parsed_scheme]
+                    # Start the LLM extraction as a task
+                    extraction_task = asyncio.create_task(
+                        llm_service.extract_with_schema(
+                            chunk, [item.model_dump() for item in parsed_scheme]
+                        )
                     )
-                    chunk_results_list.append(result)
+
+                    # Poll for completion, sending heartbeats every 15 seconds
+                    while not extraction_task.done():
+                        try:
+                            # Wait up to 15 seconds for completion
+                            result = await asyncio.wait_for(
+                                asyncio.shield(extraction_task), timeout=15.0
+                            )
+                            chunk_results_list.append(result)
+                            break
+                        except asyncio.TimeoutError:
+                            # LLM still processing - send heartbeat and continue waiting
+                            elapsed = int(time.time() - start_time)
+                            yield json.dumps({"type": "heartbeat", "elapsed": elapsed}) + "\n"
+                            # Loop continues, will wait another 15s
+
                 except Exception as e:
                     error_msg = str(e)
                     # Log detailed error for engineers
@@ -718,10 +729,15 @@ async def extract_data_stream(
                 + "\n"
             )
 
-            logger.info(f"🎉 Streaming extraction completed in {processing_time:.2f}s")
+            logger.info(
+                f"🎉 [STREAM] Extraction completed for {pdf_file.filename} "
+                f"in {processing_time:.2f}s"
+            )
 
         except Exception as e:
-            logger.error(f"💥 Streaming extraction error: {str(e)}", exc_info=True)
+            logger.error(
+                f"💥 [STREAM] Extraction error for {pdf_file.filename}: {str(e)}", exc_info=True
+            )
             yield json.dumps({"type": "error", "message": str(e)}) + "\n"
 
     return StreamingResponse(
