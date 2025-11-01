@@ -446,13 +446,14 @@ async def extract_data_stream(
     - {"type": "error", "message": "..."}
     """
 
-    logger.info(f"📥 [STREAM] New extraction request for file: {pdf_file.filename}")
-
     async def event_generator():
         """Generate progress events during extraction"""
         start_time = time.time()
 
         try:
+            # STAGE 1: Request Validation
+            logger.info(f"📥 [STAGE 1/6] Request received - file: {pdf_file.filename}")
+
             yield (
                 json.dumps(
                     {
@@ -466,6 +467,7 @@ async def extract_data_stream(
 
             # Validate file type
             if not pdf_file.content_type == "application/pdf":
+                logger.error(f"❌ [STAGE 1/6] Invalid file type: {pdf_file.content_type}")
                 yield json.dumps({"type": "error", "message": "File must be PDF"}) + "\n"
                 return
 
@@ -474,6 +476,10 @@ async def extract_data_stream(
             file_size_mb = len(contents) / (1024 * 1024)
 
             if file_size_mb > settings.MAX_FILE_SIZE_MB:
+                logger.error(
+                    f"❌ [STAGE 1/6] File too large: {file_size_mb:.1f}MB "
+                    f"(max: {settings.MAX_FILE_SIZE_MB}MB)"
+                )
                 yield (
                     json.dumps(
                         {
@@ -489,8 +495,11 @@ async def extract_data_stream(
                 return
 
             if len(contents) == 0:
+                logger.error("❌ [STAGE 1/6] PDF file is empty")
                 yield json.dumps({"type": "error", "message": "PDF file is empty"}) + "\n"
                 return
+
+            logger.info(f"✅ [STAGE 1/6] Request validation passed - {file_size_mb:.2f}MB")
 
             yield (
                 json.dumps(
@@ -503,7 +512,8 @@ async def extract_data_stream(
                 + "\n"
             )
 
-            # Parse coding scheme
+            # STAGE 2: Coding Scheme Parsing
+            logger.info("📋 [STAGE 2/6] Parsing coding scheme...")
             try:
                 scheme_data = json.loads(coding_scheme)
                 if not scheme_data:
@@ -514,6 +524,8 @@ async def extract_data_stream(
 
                 if items_to_extract == 0:
                     raise ValueError("No items marked for extraction in coding scheme")
+
+                logger.info(f"✅ [STAGE 2/6] Coding scheme parsed - {items_to_extract} fields")
 
                 yield (
                     json.dumps(
@@ -527,6 +539,7 @@ async def extract_data_stream(
                 )
 
             except (json.JSONDecodeError, ValueError) as e:
+                logger.error(f"❌ [STAGE 2/6] Coding scheme parsing failed: {str(e)}")
                 yield (
                     json.dumps({"type": "error", "message": f"Invalid coding scheme: {str(e)}"})
                     + "\n"
@@ -653,6 +666,9 @@ async def extract_data_stream(
                     f"Failed chunks: {failed_chunks}. Results may be incomplete."
                 )
 
+            # STAGE 5: Output Post-Processing
+            logger.info("🔧 [STAGE 5/6] Post-processing LLM output...")
+
             yield (
                 json.dumps(
                     {
@@ -701,6 +717,14 @@ async def extract_data_stream(
 
             processing_time = time.time() - start_time
 
+            logger.info(
+                f"✅ [STAGE 5/6] Output validated and transformed - "
+                f"found {found_count}/{found_count + not_found_count} items"
+            )
+
+            # STAGE 6: Response Complete
+            logger.info("📦 [STAGE 6/6] Sending response...")
+
             yield (
                 json.dumps({"type": "progress", "message": "Extraction complete!", "progress": 100})
                 + "\n"
@@ -729,10 +753,7 @@ async def extract_data_stream(
                 + "\n"
             )
 
-            logger.info(
-                f"🎉 [STREAM] Extraction completed for {pdf_file.filename} "
-                f"in {processing_time:.2f}s"
-            )
+            logger.info(f"✅ [STAGE 6/6] Request completed successfully in {processing_time:.2f}s")
 
         except Exception as e:
             logger.error(

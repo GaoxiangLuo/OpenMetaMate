@@ -67,6 +67,13 @@ variable "llm_model" {
   default     = "gpt-4o"
 }
 
+variable "backup_llm_api_key" {
+  description = "Backup LLM API key for automatic failover (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Frontend Configuration
 variable "frontend_build_command" {
   description = "Command to build frontend"

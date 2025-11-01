@@ -118,9 +118,9 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[09/2025]</span>
                   <span>
-                    Shipped the two most-requested upgrades: grounded PDF navigation that jumps directly to cited pages
-                    and manual answer corrections that flow into CSV exports. Explore these enhancements in your next
-                    review!
+                    Shipped the two most-requested upgrades: <strong>grounded PDF navigation</strong> that jumps
+                    directly to cited pages and <strong>manual answer corrections</strong> that flow into CSV exports.
+                    Explore these enhancements in your next review!
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -128,14 +128,14 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                   <span>
                     Thanks to{" "}
                     <a
-                      href="https://zenbase.ai/"
+                      href="https://www.thesynthesis.company/"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      Zenbase AI
+                      Synthesis Company
                     </a>{" "}
-                    for supporting our server hosting for 2025-2026.
+                    (YC S24) for supporting our server hosting for 2025-2026.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -176,7 +176,18 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[05/2024]</span>
-                  <span>MetaMate is now available on EdArXiv.</span>
+                  <span>
+                    MetaMate is now available on{" "}
+                    <a
+                      href="https://doi.org/10.35542/osf.io/wn3cd"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      EdArXiv
+                    </a>
+                    .
+                  </span>
                 </div>
               </div>
             </section>
@@ -325,21 +336,21 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
             <section>
               <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
                 <Heart className="h-5 w-5 text-red-500" />
-                Supported by Zenbase AI
+                Supported by Synthesis Company
               </h3>
               <div className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 <p className="mb-2">
                   We&apos;re grateful to{" "}
                   <a
-                    href="https://zenbase.ai/"
+                    href="https://www.thesynthesis.company/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
                   >
-                    Zenbase AI
+                    Synthesis Company
                   </a>{" "}
-                  for supporting our server hosting for 2025-2026, enabling us to keep MetaMate free and accessible to
-                  researchers worldwide.
+                  (YC S24) for supporting our server hosting for 2025-2026, enabling us to keep MetaMate free and
+                  accessible to researchers worldwide.
                 </p>
               </div>
             </section>

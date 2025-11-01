@@ -89,14 +89,97 @@ class LLMService:
             max_retries=2,  # Retry failed requests twice for transient errors
         )
         self.model = settings.LLM_MODEL
-        logger.info(
-            f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
-        )
+
+        # Initialize backup client if backup API key is configured
+        self.backup_client = None
+        if settings.BACKUP_LLM_API_KEY:
+            self.backup_client = AsyncOpenAI(
+                base_url=settings.LLM_API_URL,  # Same URL and model, different key
+                api_key=settings.BACKUP_LLM_API_KEY,
+                timeout=300.0,
+                max_retries=2,
+            )
+            logger.info(
+                f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
+            )
+            logger.info("🔄 Backup API enabled for automatic failover")
+        else:
+            logger.info(
+                f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
+            )
+            logger.info("⚠️ Backup API not configured - no automatic failover")
+
+    async def _call_llm(
+        self, client: AsyncOpenAI, pydantic_model, messages, provider_name: str
+    ) -> Dict[str, Any]:
+        """Helper method to call LLM API with given client"""
+        import time
+
+        start_time = time.time()
+
+        temperature = settings.resolve_temperature(self.model)
+        use_responses_api = settings.use_responses_api(self.model)
+        parsed_message = None
+
+        responses_resource = getattr(client, "responses", None)
+        if use_responses_api and responses_resource is not None:
+            response_payload = {
+                "model": self.model,
+                "input": messages,
+                "text_format": pydantic_model,
+                "text": {"verbosity": "low"},
+                "reasoning": {"effort": "minimal"},
+            }
+
+            if temperature is not None:
+                response_payload["temperature"] = temperature
+
+            parse_callable = getattr(responses_resource, "parse", None)
+            if parse_callable is None:
+                logger.warning(
+                    "⚠️ Responses API client detected without parse(); falling back to chat completions"
+                )
+            else:
+                response = await parse_callable(**response_payload)
+                parsed_message = getattr(response, "output_parsed", None)
+                if parsed_message is None:
+                    parsed_message = getattr(response, "parsed", None)
+
+        if parsed_message is None:
+            if use_responses_api and responses_resource is None:
+                logger.warning(
+                    "⚠️ Responses API not available in current OpenAI client; falling back to chat completions"
+                )
+
+            request_payload = {
+                "model": self.model,
+                "messages": messages,
+                "response_format": pydantic_model,
+                "seed": settings.SEED,
+            }
+
+            if temperature is not None:
+                request_payload["temperature"] = temperature
+
+            completion = await client.chat.completions.parse(**request_payload)
+            parsed_message = completion.choices[0].message.parsed
+
+        duration = time.time() - start_time
+
+        if parsed_message:
+            result = parsed_message.model_dump(mode="python")
+            logger.info(
+                f"✅ [STAGE 4/6] LLM extraction completed ({provider_name}) in {duration:.1f}s"
+            )
+            return result
+
+        logger.warning(f"⚠️ No parsed result from LLM ({provider_name})")
+        return {}
 
     async def extract_with_schema(
         self, text: str, coding_scheme: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Extract data using LLM with dynamic Pydantic model"""
+        """Extract data using LLM with dynamic Pydantic model and automatic failover"""
 
         if not text or not text.strip():
             logger.warning("⚠️ Empty text provided for extraction")
@@ -111,85 +194,70 @@ class LLMService:
             logger.error("❌ Failed to create Pydantic model from coding scheme")
             raise ExtractionError("Failed to create extraction model from coding scheme")
 
+        system_prompt = (
+            GPT_5_SYSTEM_PROMPT if settings.use_responses_api(self.model) else SYSTEM_PROMPT
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ]
+
+        # Try primary API first
         try:
-            logger.debug(f"📡 Sending request to LLM (text length: {len(text)} chars)")
-
-            system_prompt = (
-                GPT_5_SYSTEM_PROMPT if settings.use_responses_api(self.model) else SYSTEM_PROMPT
-            )
-
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text},
-            ]
-
-            temperature = settings.resolve_temperature(self.model)
-            use_responses_api = settings.use_responses_api(self.model)
-            parsed_message = None
-
-            responses_resource = getattr(self.client, "responses", None)
-            if use_responses_api and responses_resource is not None:
-                response_payload = {
-                    "model": self.model,
-                    "input": messages,
-                    "text_format": pydantic_model,
-                    "text": {"verbosity": "low"},
-                    "reasoning": {"effort": "minimal"},
-                }
-
-                if temperature is not None:
-                    response_payload["temperature"] = temperature
-
-                parse_callable = getattr(responses_resource, "parse", None)
-                if parse_callable is None:
-                    logger.warning(
-                        "⚠️ Responses API client detected without parse(); falling back to chat completions"
-                    )
-                else:
-                    response = await parse_callable(**response_payload)
-                    parsed_message = getattr(response, "output_parsed", None)
-                    if parsed_message is None:
-                        parsed_message = getattr(response, "parsed", None)
-
-            if parsed_message is None:
-                if use_responses_api and responses_resource is None:
-                    logger.warning(
-                        "⚠️ Responses API not available in current OpenAI client; falling back to chat completions"
-                    )
-
-                request_payload = {
-                    "model": self.model,
-                    "messages": messages,
-                    "response_format": pydantic_model,
-                    "seed": settings.SEED,
-                }
-
-                if temperature is not None:
-                    request_payload["temperature"] = temperature
-
-                completion = await self.client.chat.completions.parse(**request_payload)
-                parsed_message = completion.choices[0].message.parsed
-
-            if parsed_message:
-                result = parsed_message.model_dump(mode="python")
-                logger.debug("✅ LLM extraction successful with structured output")
-                return result
-
-            logger.warning("⚠️ No parsed result from LLM")
-            return {}
+            logger.info("🤖 [STAGE 4/6] Starting LLM extraction (primary API)...")
+            return await self._call_llm(self.client, pydantic_model, messages, "primary API")
 
         except RateLimitError as e:
-            logger.error(f"🚫 Rate limit error from LLM API: {e}")
-            raise ExtractionError(f"API rate limit exceeded: {e}")
+            # 429 error - try backup API if available
+            logger.error("❌ [STAGE 4/6] Primary LLM API failed: Rate limit error (429)")
+
+            if self.backup_client:
+                logger.info("🔄 [STAGE 4/6] Retrying with backup API...")
+                try:
+                    return await self._call_llm(
+                        self.backup_client, pydantic_model, messages, "backup API"
+                    )
+                except Exception as backup_error:
+                    logger.error(f"❌ [STAGE 4/6] Backup API also failed: {backup_error}")
+                    raise ExtractionError(
+                        f"Both primary and backup APIs failed. Primary: Rate limit. Backup: {backup_error}"
+                    )
+            else:
+                logger.error("❌ [STAGE 4/6] No backup API configured - cannot retry")
+                raise ExtractionError(f"API rate limit exceeded: {e}")
 
         except APITimeoutError as e:
-            logger.error(f"⏱️ Timeout error from LLM API: {e}")
+            logger.error(f"❌ [STAGE 4/6] Primary API timeout: {e}")
             raise ExtractionError(f"API request timed out: {e}")
 
         except APIError as e:
-            logger.error(f"🔴 API error from LLM: {e}")
-            raise ExtractionError(f"LLM API error: {e}")
+            # Server errors (5xx) - try backup if available
+            error_message = str(e)
+            if "50" in error_message:  # 500-599 server errors
+                logger.error(f"❌ [STAGE 4/6] Primary API server error: {e}")
+
+                if self.backup_client:
+                    logger.info("🔄 [STAGE 4/6] Retrying with backup API...")
+                    try:
+                        return await self._call_llm(
+                            self.backup_client, pydantic_model, messages, "backup API"
+                        )
+                    except Exception as backup_error:
+                        logger.error(f"❌ [STAGE 4/6] Backup API also failed: {backup_error}")
+                        raise ExtractionError(
+                            f"Both primary and backup APIs failed. Primary: {e}. Backup: {backup_error}"
+                        )
+                else:
+                    logger.error("❌ [STAGE 4/6] No backup API configured - cannot retry")
+                    raise ExtractionError(f"LLM API error: {e}")
+            else:
+                # Client error (4xx) - don't retry with backup
+                logger.error(f"❌ [STAGE 4/6] Primary API client error: {e}")
+                raise ExtractionError(f"LLM API error: {e}")
 
         except Exception as e:
-            logger.error(f"💥 Unexpected error during LLM extraction: {e}", exc_info=True)
+            logger.error(
+                f"❌ [STAGE 4/6] Unexpected error during LLM extraction: {e}", exc_info=True
+            )
             raise ExtractionError(f"Unexpected extraction error: {e}")
