@@ -30,6 +30,11 @@ async def health_check():
             "rate_limiting": "✅ Enabled",
             "max_file_size": f"📄 {settings.MAX_FILE_SIZE_MB}MB",
         },
+        "limits": {
+            "max_file_size_mb": settings.MAX_FILE_SIZE_MB,
+            "max_files_per_batch": settings.MAX_FILES_PER_BATCH,
+            "extraction_rate_limit_per_minute": settings.EXTRACTION_RATE_LIMIT_PER_MINUTE,
+        },
         "api_key_configured": api_key_configured,
         "api_key_length": len(settings.LLM_API_KEY) if settings.LLM_API_KEY else 0,
     }

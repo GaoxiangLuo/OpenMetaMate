@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -220,7 +221,7 @@ def get_pdf_processor():
 
 
 @router.post("/extract", response_model=ExtractionResponse)
-@limiter.limit("10 per minute")
+@limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
 async def extract_data(
     request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
 ):
@@ -314,7 +315,7 @@ async def extract_data(
             logger.info(f"🤖 Processing chunk {chunk_index + 1}/{len(chunks)} with LLM...")
             try:
                 result = await llm_service.extract_with_schema(
-                    chunk, [item.dict() for item in parsed_scheme]
+                    chunk, [item.model_dump() for item in parsed_scheme]
                 )
                 logger.info(f"✅ Chunk {chunk_index + 1} processed successfully")
                 return result
@@ -429,3 +430,305 @@ async def extract_data(
             status_code=500,
             detail="An unexpected error occurred during extraction. Please try again.",
         )
+
+
+@router.post("/extract/stream")
+@limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
+async def extract_data_stream(
+    request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
+):
+    """
+    Extract data from PDF using streaming responses to bypass Lightsail 60s timeout.
+
+    Returns newline-delimited JSON with progress updates:
+    - {"type": "progress", "message": "...", "progress": 0-100}
+    - {"type": "complete", "data": {...}}
+    - {"type": "error", "message": "..."}
+    """
+
+    async def event_generator():
+        """Generate progress events during extraction"""
+        start_time = time.time()
+        last_heartbeat = time.time()
+
+        try:
+            yield (
+                json.dumps(
+                    {
+                        "type": "progress",
+                        "message": f"Starting extraction for {pdf_file.filename}",
+                        "progress": 0,
+                    }
+                )
+                + "\n"
+            )
+
+            # Validate file type
+            if not pdf_file.content_type == "application/pdf":
+                yield json.dumps({"type": "error", "message": "File must be PDF"}) + "\n"
+                return
+
+            # Read file
+            contents = await pdf_file.read()
+            file_size_mb = len(contents) / (1024 * 1024)
+
+            if file_size_mb > settings.MAX_FILE_SIZE_MB:
+                yield (
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "message": (
+                                f"File too large: {file_size_mb:.1f}MB "
+                                f"(max: {settings.MAX_FILE_SIZE_MB}MB)"
+                            ),
+                        }
+                    )
+                    + "\n"
+                )
+                return
+
+            if len(contents) == 0:
+                yield json.dumps({"type": "error", "message": "PDF file is empty"}) + "\n"
+                return
+
+            yield (
+                json.dumps(
+                    {
+                        "type": "progress",
+                        "message": f"File validated ({file_size_mb:.2f}MB)",
+                        "progress": 5,
+                    }
+                )
+                + "\n"
+            )
+
+            # Parse coding scheme
+            try:
+                scheme_data = json.loads(coding_scheme)
+                if not scheme_data:
+                    raise ValueError("Coding scheme cannot be empty")
+
+                parsed_scheme = [CodingSchemeItem(**item) for item in scheme_data]
+                items_to_extract = sum(1 for item in parsed_scheme if item.include_in_extraction)
+
+                if items_to_extract == 0:
+                    raise ValueError("No items marked for extraction in coding scheme")
+
+                yield (
+                    json.dumps(
+                        {
+                            "type": "progress",
+                            "message": f"Coding scheme parsed: {items_to_extract} items to extract",
+                            "progress": 10,
+                        }
+                    )
+                    + "\n"
+                )
+
+            except (json.JSONDecodeError, ValueError) as e:
+                yield (
+                    json.dumps({"type": "error", "message": f"Invalid coding scheme: {str(e)}"})
+                    + "\n"
+                )
+                return
+
+            # Extract text from PDF
+            pdf_processor = get_pdf_processor()
+            yield (
+                json.dumps(
+                    {"type": "progress", "message": "Extracting text from PDF...", "progress": 10}
+                )
+                + "\n"
+            )
+
+            extraction_result: PDFExtractionResult = await pdf_processor.extract_text_from_pdf(
+                contents
+            )
+            text = extraction_result.full_text
+
+            if not text or len(text.strip()) == 0:
+                yield (
+                    json.dumps(
+                        {"type": "error", "message": "No text could be extracted from the PDF"}
+                    )
+                    + "\n"
+                )
+                return
+
+            text_length = len(text)
+            yield (
+                json.dumps(
+                    {
+                        "type": "progress",
+                        "message": f"Extracted {text_length:,} characters from PDF",
+                        "progress": 35,
+                    }
+                )
+                + "\n"
+            )
+
+            # Chunk text
+            chunks = await pdf_processor.chunk_text(text)
+            yield (
+                json.dumps(
+                    {
+                        "type": "progress",
+                        "message": "Preparing document for analysis...",
+                        "progress": 50,
+                    }
+                )
+                + "\n"
+            )
+
+            # Process chunks with LLM
+            llm_service = LLMService()
+            chunk_results_list = []
+            failed_chunks = []
+
+            for i, chunk in enumerate(chunks):
+                # Send heartbeat every 20 seconds to keep connection alive
+                current_time = time.time()
+                if current_time - last_heartbeat > 20:
+                    yield (
+                        json.dumps({"type": "heartbeat", "elapsed": int(current_time - start_time)})
+                        + "\n"
+                    )
+                    last_heartbeat = current_time
+
+                progress = 50 + int((i / len(chunks)) * 40)  # 50-90%
+                yield (
+                    json.dumps(
+                        {
+                            "type": "progress",
+                            "message": "Analyzing document with AI...",
+                            "progress": progress,
+                        }
+                    )
+                    + "\n"
+                )
+
+                try:
+                    result = await llm_service.extract_with_schema(
+                        chunk, [item.model_dump() for item in parsed_scheme]
+                    )
+                    chunk_results_list.append(result)
+                except Exception as e:
+                    error_msg = str(e)
+                    # Log detailed error for engineers
+                    logger.error(
+                        f"❌ Error processing chunk {i + 1}/{len(chunks)}: {error_msg}",
+                        exc_info=True,
+                    )
+                    failed_chunks.append(i + 1)
+                    chunk_results_list.append({})
+
+            # If ALL chunks failed, abort the extraction
+            if len(failed_chunks) == len(chunks):
+                error_message = (
+                    "Unable to process the document. "
+                    "Please try again or contact support if the issue persists."
+                )
+                logger.error(
+                    f"💥 Complete extraction failure: All {len(chunks)} chunks failed. "
+                    f"Failed chunks: {failed_chunks}"
+                )
+                yield json.dumps({"type": "error", "message": error_message}) + "\n"
+                return
+
+            # Log partial failures for engineering diagnostics (not shown to user)
+            if failed_chunks:
+                logger.warning(
+                    f"⚠️ Partial extraction: {len(failed_chunks)}/{len(chunks)} chunks failed. "
+                    f"Failed chunks: {failed_chunks}. Results may be incomplete."
+                )
+
+            yield (
+                json.dumps(
+                    {
+                        "type": "progress",
+                        "message": "Finalizing extraction results...",
+                        "progress": 90,
+                    }
+                )
+                + "\n"
+            )
+
+            # Merge results
+            def get_field_from_chunk(
+                chunk_data: Dict[str, Any], key_path: str
+            ) -> Optional[Dict[str, Any]]:
+                parts = [part for part in key_path.split("/") if part]
+                node: Any = chunk_data
+                for part in parts:
+                    if not isinstance(node, dict):
+                        return None
+                    node = node.get(part)
+                    if node is None:
+                        return None
+                return node if isinstance(node, dict) else None
+
+            extracted_data: Dict[str, ExtractionResultItem] = {}
+            found_count = 0
+            not_found_count = 0
+
+            for item in parsed_scheme:
+                if item.include_in_extraction:
+                    expected_key = get_expected_key(item.name)
+                    candidate_data: Optional[Dict[str, Any]] = None
+                    for chunk_data in chunk_results_list:
+                        candidate_data = get_field_from_chunk(chunk_data, expected_key)
+                        if candidate_data:
+                            break
+
+                    parsed_item = build_extraction_item(candidate_data, fallback_label=item.name)
+                    extracted_data[item.name] = parsed_item
+
+                    if parsed_item.answer_type == "Not Found":
+                        not_found_count += 1
+                    else:
+                        found_count += 1
+
+            processing_time = time.time() - start_time
+
+            yield (
+                json.dumps({"type": "progress", "message": "Extraction complete!", "progress": 100})
+                + "\n"
+            )
+
+            # Send final result
+            total_items = found_count + not_found_count
+
+            result = ExtractionResponse(
+                fileName=pdf_file.filename,
+                extractedData=extracted_data,
+                status="success",
+                message=(
+                    f"Extraction completed successfully. Found {found_count}/{total_items} items."
+                ),
+            )
+
+            yield (
+                json.dumps(
+                    {
+                        "type": "complete",
+                        "data": result.model_dump(by_alias=True),
+                        "processing_time": processing_time,
+                    }
+                )
+                + "\n"
+            )
+
+            logger.info(f"🎉 Streaming extraction completed in {processing_time:.2f}s")
+
+        except Exception as e:
+            logger.error(f"💥 Streaming extraction error: {str(e)}", exc_info=True)
+            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="application/x-ndjson",  # Newline-delimited JSON
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable buffering in nginx/proxies
+        },
+    )
