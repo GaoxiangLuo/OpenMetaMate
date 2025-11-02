@@ -43,8 +43,14 @@ class Settings:
     EXTRACTION_RATE_LIMIT_PER_MINUTE: int = 20  # PDFs per minute for extraction endpoints
 
     # PDF Processor Configuration
-    # Options: pypdf, docling, mineru, mathpix, textract
+    # Options: pypdf, mineru
     PDF_PROCESSOR: str = os.getenv("PDF_PROCESSOR", "pypdf")
+
+    # MinerU API Configuration (optional, for advanced PDF extraction)
+    MINERU_API_KEY: Optional[str] = os.getenv("MINERU_API_KEY", None)
+
+    # AWS S3 Configuration (for MinerU temporary file hosting)
+    AWS_S3_TEMP_BUCKET: Optional[str] = os.getenv("AWS_S3_TEMP_BUCKET", None)
 
     # Default thresholds for "not found" values
     NOT_FOUND_STRINGS: List[str] = ["", "na", "n/a", "null", "none", "not found", "not available"]
@@ -91,9 +97,21 @@ class Settings:
             warnings.append("LLM_API_KEY seems too short")
 
         # Validate PDF processor
-        valid_processors = ["pypdf", "docling", "mineru", "mathpix", "textract"]
+        valid_processors = ["pypdf", "mineru"]
         if self.PDF_PROCESSOR.lower() not in valid_processors:
             warnings.append(f"Unknown PDF processor '{self.PDF_PROCESSOR}', will use pypdf")
+
+        # Validate MinerU configuration if API key is provided
+        if self.MINERU_API_KEY:
+            if not self.AWS_S3_TEMP_BUCKET:
+                warnings.append(
+                    "MINERU_API_KEY provided but AWS_S3_TEMP_BUCKET not set. "
+                    "MinerU will not work without S3 bucket."
+                )
+            else:
+                logger.info(
+                    "🔧 MinerU integration enabled (will try MinerU first, fallback to PyPDF)"
+                )
 
         # Validate numeric settings
         if self.MAX_FILE_SIZE_MB <= 0:
@@ -134,6 +152,8 @@ class Settings:
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
         logger.info(f"  🔄 Backup API: {'Enabled' if self.BACKUP_LLM_API_KEY else 'Disabled'}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
+        if self.MINERU_API_KEY and self.AWS_S3_TEMP_BUCKET:
+            logger.info("  🚀 MinerU: Enabled (with PyPDF fallback)")
         logger.info(f"  📄 Max file size: {self.MAX_FILE_SIZE_MB}MB")
         logger.info(f"  📦 Chunk size: {effective_chunk_size} tokens")
         logger.info(f"  🌐 CORS origins: {self.CORS_ORIGINS}")

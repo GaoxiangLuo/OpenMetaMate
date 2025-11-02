@@ -51,6 +51,11 @@ output "logs_bucket_name" {
   value       = aws_s3_bucket.logs.id
 }
 
+output "pdf_temp_bucket_name" {
+  description = "Temporary PDF storage bucket name (for MinerU)"
+  value       = aws_s3_bucket.pdf_temp.id
+}
+
 # Lightsail Container Service
 output "container_service_name" {
   description = "Lightsail container service name"

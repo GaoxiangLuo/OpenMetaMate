@@ -74,6 +74,13 @@ variable "backup_llm_api_key" {
   default     = ""
 }
 
+variable "mineru_api_key" {
+  description = "MinerU API key for advanced PDF extraction (optional)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Frontend Configuration
 variable "frontend_build_command" {
   description = "Command to build frontend"

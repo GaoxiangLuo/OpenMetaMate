@@ -46,6 +46,8 @@ docker-compose up
 # CORS_ORIGINS=http://localhost:3000
 # MAX_FILE_SIZE_MB=10
 # PDF_PROCESSOR=pypdf
+# MINERU_API_KEY=your-mineru-key  # Optional: for advanced PDF extraction with MinerU
+# AWS_S3_TEMP_BUCKET=your-bucket  # Required if using MinerU
 ```
 
 ## Architecture Overview
@@ -63,9 +65,15 @@ docker-compose up
 
 ### Key Design Patterns
 
-1. **PDF Processing Factory**: Multiple processors (PyPDF, Docling, MinerU) with automatic fallback
-   - Implementation: `backend/app/services/pdf_processor.py`
-   - Factory selection based on configuration
+1. **PDF Processing Factory**: Multiple processors (PyPDF, MinerU) with automatic fallback
+   - Implementation: `backend/app/services/pdf_processor.py`, `backend/app/services/mineru_processor.py`
+   - **MinerU Integration** (optional): Advanced cloud-based PDF extraction
+     - Features: OCR for scanned PDFs, formula recognition, table extraction
+     - Free tier: 2000 pages/day at highest priority
+     - Requires: `MINERU_API_KEY` and `AWS_S3_TEMP_BUCKET`
+     - Automatic fallback to PyPDF on failure (network issues, quota exceeded, etc.)
+     - S3 temporary storage: `backend/app/services/s3_temp_storage.py`
+   - **Fallback Logic**: If MinerU configured, try MinerU → fallback to PyPDF. Otherwise, PyPDF only
 
 2. **LLM Service Layer**: Abstracted LLM integration with automatic failover
    - Implementation: `backend/app/services/llm_service.py`
@@ -192,7 +200,8 @@ The GitHub Actions workflow automatically:
 **Backend Core**:
 - API routes: `backend/app/api/routes/extraction.py`
 - LLM service: `backend/app/services/llm_service.py`
-- PDF processors: `backend/app/services/pdf_processor.py`
+- PDF processors: `backend/app/services/pdf_processor.py`, `backend/app/services/mineru_processor.py`
+- S3 temporary storage: `backend/app/services/s3_temp_storage.py`
 - Configuration: `backend/app/core/config.py`
 
 **Frontend Core**:

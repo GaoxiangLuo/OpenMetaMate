@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import {
   FileText,
   Settings2,
+  Settings,
   BotMessageSquare,
   BarChart3,
   Download,
@@ -131,11 +135,13 @@ const convertAllExtractionsToCSV = (history: ExtractionHistoryItem[]): string =>
 const callExtractionAPI = async (
   file: File,
   scheme: CodingSchemeItem[],
+  enhancedExtraction: boolean,
   onProgress?: (message: string, progress: number) => void,
 ): Promise<ExtractionResult> => {
   const formData = new FormData()
   formData.append("pdf_file", file)
   formData.append("coding_scheme", JSON.stringify(scheme))
+  formData.append("enhanced_extraction", enhancedExtraction.toString())
 
   console.log(`Calling streaming extraction API: ${config.apiUrl}/api/v1/extract/stream`)
   console.log(`File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
@@ -309,6 +315,8 @@ export default function MetaMateChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
+  const [enhancedExtraction, setEnhancedExtraction] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
   const pdfSourcesRef = useRef<Record<string, string>>({})
@@ -508,7 +516,11 @@ export default function MetaMateChatPage() {
     // No system message here, toast in editor is enough
   }
 
-  const processSingleFile = async (file: File, currentScheme: CodingSchemeItem[]): Promise<ProcessedFileResult> => {
+  const processSingleFile = async (
+    file: File,
+    currentScheme: CodingSchemeItem[],
+    useEnhanced: boolean,
+  ): Promise<ProcessedFileResult> => {
     const uniqueSuffix = `${Date.now().toString()}_${Math.random().toString(36).substring(2, 9)}`
     const fileMessageId = `file_msg_${uniqueSuffix}_${file.name.replace(/[^a-zA-Z0-9_.-]/g, "")}`
     const fileKey = `pdf_${uniqueSuffix}`
@@ -533,7 +545,7 @@ export default function MetaMateChatPage() {
     try {
       // Call the real API with the file and full scheme (API will filter includeInExtraction)
       // Use streaming endpoint to bypass Lightsail 60s timeout limit
-      const extractedData = await callExtractionAPI(file, currentScheme, (message, progress) => {
+      const extractedData = await callExtractionAPI(file, currentScheme, useEnhanced, (message, progress) => {
         // Update progress in real-time
         updateMessage(fileMessageId, {
           fileSpecificMessage: `${message} (${progress}%)`,
@@ -585,7 +597,9 @@ export default function MetaMateChatPage() {
     const schemeForThisBatch = JSON.parse(JSON.stringify(codingScheme)) as CodingSchemeItem[]
 
     // Process all files concurrently
-    const results = await Promise.all(filesToProcess.map((file) => processSingleFile(file, schemeForThisBatch)))
+    const results = await Promise.all(
+      filesToProcess.map((file) => processSingleFile(file, schemeForThisBatch, enhancedExtraction)),
+    )
 
     // Add successful extractions to history
     results.forEach((result, index) => {
@@ -915,6 +929,15 @@ export default function MetaMateChatPage() {
                       ? `Extracting ${extractingFileCount} file(s)...`
                       : `Extract Data from ${selectedFiles.length > 0 ? selectedFiles.length + " file(s)" : "PDF(s)"}`}
                   </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSettingsDialogOpen(true)}
+                    className="p-2.5 border-primary-jhuBlue/70 text-primary-jhuBlue hover:bg-primary-jhuLightBlue/10 dark:text-primary-jhuLightBlue dark:border-primary-jhuLightBlue/70 dark:hover:bg-primary-jhuBlue/30"
+                    title="Extraction Settings"
+                  >
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">Settings</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -950,8 +973,8 @@ export default function MetaMateChatPage() {
                       key={entry.id}
                       className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors group"
                     >
-                      <div className="flex justify-between items-center">
-                        <div className="truncate">
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="min-w-0 flex-1">
                           <p
                             className="font-medium text-xs text-primary-jhuBlue dark:text-slate-100 truncate"
                             title={entry.fileName}
@@ -965,7 +988,7 @@ export default function MetaMateChatPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30 shrink-0"
+                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30 flex-shrink-0"
                           onClick={() => viewHistoryItem(entry)}
                           title="View this extraction in chat"
                         >
@@ -999,6 +1022,34 @@ export default function MetaMateChatPage() {
         onSaveScheme={handleSaveSchemeInApp}
       />
       <AuthorInfoModal isOpen={isAuthorInfoModalOpen} onOpenChange={setIsAuthorInfoModalOpen} />
+
+      {/* Settings Dialog */}
+      <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Extraction Settings</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="enhanced-extraction"
+                checked={enhancedExtraction}
+                onCheckedChange={(checked) => setEnhancedExtraction(checked === true)}
+                className="mt-0.5 data-[state=checked]:bg-primary-jhuBlue data-[state=checked]:border-primary-jhuBlue data-[state=checked]:text-white dark:data-[state=checked]:bg-primary-jhuLightBlue dark:data-[state=checked]:border-primary-jhuLightBlue dark:data-[state=checked]:text-primary-jhuBlue"
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="enhanced-extraction" className="text-sm font-medium leading-none cursor-pointer">
+                  Enhanced extraction for tables and figures
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Uses advanced processing to better extract tables, figures, and mathematical equations. This provides
+                  higher quality results but takes approximately 2-3 minutes longer per document.
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

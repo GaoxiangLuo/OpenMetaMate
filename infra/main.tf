@@ -72,6 +72,8 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
     LLM_API_URL        = var.llm_api_url
     LLM_MODEL          = var.llm_model
     BACKUP_LLM_API_KEY = var.backup_llm_api_key
+    MINERU_API_KEY     = var.mineru_api_key
+    AWS_S3_TEMP_BUCKET = aws_s3_bucket.pdf_temp.id
   })
 }
 
@@ -379,5 +381,72 @@ resource "aws_budgets_budget" "monthly" {
     threshold_type            = "PERCENTAGE"
     notification_type         = "ACTUAL"
     subscriber_email_addresses = [var.budget_email]
+  }
+}
+
+# ============================================
+# S3 BUCKET FOR MINERU TEMPORARY PDF STORAGE
+# ============================================
+
+# S3 bucket for temporary PDF storage (for MinerU API)
+resource "aws_s3_bucket" "pdf_temp" {
+  bucket = "${var.app_name}-${var.environment}-pdf-temp"
+
+  tags = merge(var.tags, {
+    Purpose = "Temporary PDF storage for MinerU API"
+  })
+}
+
+# Block all public access (use presigned URLs instead)
+resource "aws_s3_bucket_public_access_block" "pdf_temp" {
+  bucket = aws_s3_bucket.pdf_temp.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Lifecycle policy: auto-delete files after 1 day
+resource "aws_s3_bucket_lifecycle_configuration" "pdf_temp" {
+  bucket = aws_s3_bucket.pdf_temp.id
+
+  rule {
+    id     = "delete_old_temp_files"
+    status = "Enabled"
+
+    # Apply to all objects with temp/ prefix
+    filter {
+      prefix = "temp/"
+    }
+
+    expiration {
+      days = 1
+    }
+
+    # Also clean up incomplete multipart uploads
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
+}
+
+# Enable versioning (optional, for safety)
+resource "aws_s3_bucket_versioning" "pdf_temp" {
+  bucket = aws_s3_bucket.pdf_temp.id
+
+  versioning_configuration {
+    status = "Disabled" # Not needed for temp files
+  }
+}
+
+# Server-side encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "pdf_temp" {
+  bucket = aws_s3_bucket.pdf_temp.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
   }
 }
