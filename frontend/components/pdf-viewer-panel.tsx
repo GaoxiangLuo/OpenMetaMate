@@ -332,6 +332,21 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
           )}
         </div>
       </div>
+
+      <footer className="px-4 py-2.5 border-t-2 border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-900/20">
+        <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+          🌍🌲 <span className="font-semibold">Environmental Impact:</span> Each query uses ~0.34Wh and ~0.3ml water.
+          Each PDF extraction may use 5-30x this amount depending on document size.{" "}
+          <a
+            href="https://blog.samaltman.com/the-gentle-singularity"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:underline font-medium"
+          >
+            [Source]
+          </a>
+        </p>
+      </footer>
     </section>
   )
 }
