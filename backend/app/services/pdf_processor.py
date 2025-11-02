@@ -37,6 +37,7 @@ class PDFProcessorType(Enum):
     """Available PDF processor implementations."""
 
     PYPDF = "pypdf"
+    MINERU = "mineru"
 
 
 class BasePDFProcessor(ABC):
@@ -178,11 +179,25 @@ class PyPDFProcessor(BasePDFProcessor):
 
 
 class PDFProcessorFactory:
-    """Factory for creating PDF processor instances"""
+    """Factory for creating PDF processor instances with automatic fallback"""
 
     _processors = {
         PDFProcessorType.PYPDF: PyPDFProcessor,
     }
+
+    @classmethod
+    def _register_mineru_processor(cls):
+        """Lazily register MinerU processor (only if configured)"""
+        if PDFProcessorType.MINERU not in cls._processors:
+            try:
+                from app.services.mineru_processor import MinerUPDFProcessor
+
+                cls._processors[PDFProcessorType.MINERU] = MinerUPDFProcessor
+                logger.debug("✅ MinerU processor registered")
+            except ImportError as e:
+                logger.warning(f"⚠️ Failed to import MinerU processor: {e}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to register MinerU processor: {e}")
 
     @classmethod
     def create(cls, processor_type: PDFProcessorType = PDFProcessorType.PYPDF) -> BasePDFProcessor:
@@ -197,6 +212,10 @@ class PDFProcessorFactory:
         Raises:
             ValueError: If processor type is not supported
         """
+        # Register MinerU if requested
+        if processor_type == PDFProcessorType.MINERU:
+            cls._register_mineru_processor()
+
         processor_class = cls._processors.get(processor_type)
         if not processor_class:
             logger.error(f"❌ Unknown processor type: {processor_type}")
@@ -209,3 +228,69 @@ class PDFProcessorFactory:
         except Exception as e:
             logger.error(f"❌ Failed to create {processor_type.value} processor: {e}")
             raise
+
+    @classmethod
+    async def extract_with_fallback(
+        cls, pdf_content: bytes, enhanced_extraction: bool = False
+    ) -> PDFExtractionResult:
+        """Extract text from PDF with automatic fallback.
+
+        If enhanced_extraction is True and MinerU is configured, try MinerU first.
+        Otherwise, use PyPDF directly.
+
+        Args:
+            pdf_content: PDF file content as bytes
+            enhanced_extraction: If True, use MinerU for better table/figure extraction (slower)
+
+        Returns:
+            PDFExtractionResult from successful processor
+
+        Raises:
+            PDFProcessingError: If all processors fail
+        """
+        from app.core.config import settings
+
+        # Determine if MinerU should be tried (only if user requested AND it's configured)
+        use_mineru = enhanced_extraction and bool(
+            settings.MINERU_API_KEY and settings.AWS_S3_TEMP_BUCKET
+        )
+
+        if use_mineru:
+            # Try MinerU first
+            try:
+                logger.info(
+                    "🚀 Attempting extraction with MinerU (will fallback to PyPDF if needed)"
+                )
+                mineru_processor = cls.create(PDFProcessorType.MINERU)
+                result = await mineru_processor.extract_text_from_pdf(pdf_content)
+                logger.info("✅ MinerU extraction successful")
+                return result
+
+            except PDFProcessingError as e:
+                logger.warning(f"⚠️ MinerU extraction failed: {e}")
+                logger.info("🔄 Falling back to PyPDF processor...")
+
+            except Exception as e:
+                logger.warning(f"⚠️ MinerU extraction failed unexpectedly: {e}")
+                logger.info("🔄 Falling back to PyPDF processor...")
+
+        # Use PyPDF (either as fallback or primary)
+        try:
+            if use_mineru:
+                logger.info("📄 Using PyPDF fallback processor")
+            elif enhanced_extraction:
+                logger.info(
+                    "📄 Using PyPDF processor "
+                    "(MinerU not configured, but enhanced extraction requested)"
+                )
+            else:
+                logger.info("📄 Using PyPDF processor (standard extraction)")
+
+            pypdf_processor = cls.create(PDFProcessorType.PYPDF)
+            result = await pypdf_processor.extract_text_from_pdf(pdf_content)
+            logger.info("✅ PyPDF extraction successful")
+            return result
+
+        except Exception as e:
+            logger.error(f"❌ PyPDF extraction failed: {e}")
+            raise PDFProcessingError(f"All PDF processors failed. Last error: {e}")

@@ -116,6 +116,14 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
               </h3>
               <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2025]</span>
+                  <span>
+                    <strong>Enhanced extraction for tables and figures</strong> is now available! Enable it via the
+                    Settings (⚙️) to get better extraction of complex tables, mathematical equations, and infographic
+                    figures. Plus, it works for scanned PDFs as well.
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[09/2025]</span>
                   <span>
                     Shipped the two most-requested upgrades: <strong>grounded PDF navigation</strong> that jumps
@@ -228,33 +236,37 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
-                    <strong>Enhanced Table/Figure Understanding:</strong> add VLM/OCR/TableFormer integration.
+                    <strong>Enhanced Table/Figure Understanding:</strong> add VLM/OCR/TableFormer integration (e.g.,
+                    MinerU 2.5, DeepSeek OCR, MathPix, etc.)
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
                   <span>
-                    <strong>Enhanced Confidence:</strong> add self-consistency sampling for monte-carlo estimation.
+                    <strong>Enhanced Confidence:</strong> add self-consistency sampling for monte-carlo estimation with
+                    cached input tokens.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
                   <span>
-                    <strong>Multi-Agent:</strong> incorporate multi-LLM-agent as multi-reviewers.
+                    <strong>Multi-Agent:</strong> incorporate multi LLM agents as multi coders for debate.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
                   <span>
-                    <strong>Description Optimization:</strong> automate description filling for coding scheme.
+                    <strong>Description Optimization:</strong> automate description completions in coding schemes with
+                    LLM as an optimizer and Bayesian optimization.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
                   <span>
-                    <strong>Reinforcement Learning:</strong> fine-tuning LLM agent for extraction.
+                    <strong>Reinforcement Learning:</strong> post-train a specialized small base LLM for educational
+                    context extraction with proper reward functions.
                   </span>
                 </div>
               </div>
@@ -268,19 +280,19 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <TabsList className="grid w-full grid-cols-3 bg-slate-100 dark:bg-slate-800">
                   <TabsTrigger
                     value="apa"
-                    className="data-[state=active]:bg-jhu-light-blue data-[state=active]:text-white dark:data-[state=active]:bg-jhu-blue dark:data-[state=active]:text-white"
+                    className="data-[state=active]:bg-primary-jhuBlue data-[state=active]:text-white dark:data-[state=active]:bg-primary-jhuLightBlue dark:data-[state=active]:text-primary-jhuBlue"
                   >
                     APA
                   </TabsTrigger>
                   <TabsTrigger
                     value="mla"
-                    className="data-[state=active]:bg-jhu-light-blue data-[state=active]:text-white dark:data-[state=active]:bg-jhu-blue dark:data-[state=active]:text-white"
+                    className="data-[state=active]:bg-primary-jhuBlue data-[state=active]:text-white dark:data-[state=active]:bg-primary-jhuLightBlue dark:data-[state=active]:text-primary-jhuBlue"
                   >
                     MLA
                   </TabsTrigger>
                   <TabsTrigger
                     value="bibtex"
-                    className="data-[state=active]:bg-jhu-light-blue data-[state=active]:text-white dark:data-[state=active]:bg-jhu-blue dark:data-[state=active]:text-white"
+                    className="data-[state=active]:bg-primary-jhuBlue data-[state=active]:text-white dark:data-[state=active]:bg-primary-jhuLightBlue dark:data-[state=active]:text-primary-jhuBlue"
                   >
                     BibTeX
                   </TabsTrigger>
@@ -363,7 +375,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
               <div className="text-sm text-slate-700 dark:text-slate-300 mb-3">
                 <p className="mb-2">
                   MetaMate is developed and maintained by PhD students. If you find this tool helpful for your research,
-                  consider citing our work and buying us a coffee.
+                  consider citing our work or buying us a coffee.
                 </p>
               </div>
               <Button

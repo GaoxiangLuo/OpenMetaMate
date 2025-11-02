@@ -14,6 +14,12 @@ llm_model   = "gpt-4o"                     # Or claude-3-opus, etc.
 # Recommended: Use a different OpenAI account for redundancy
 # backup_llm_api_key = "sk-proj-YOUR_BACKUP_API_KEY_HERE"
 
+# Optional: MinerU API Key (for enhanced table/figure extraction)
+# Get your API key from: https://mineru.net/
+# Free tier: 2000 pages/day, better table/figure/equation extraction
+# When set, users can enable "enhanced extraction" in settings
+# mineru_api_key = "YOUR_MINERU_API_KEY_HERE"
+
 # Your domain configuration
 domain_name = "metamate.online"  # Your domain from CloudFlare
 enable_cdn  = true               # Enable CloudFront CDN (recommended)

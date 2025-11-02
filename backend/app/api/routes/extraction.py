@@ -223,7 +223,10 @@ def get_pdf_processor():
 @router.post("/extract", response_model=ExtractionResponse)
 @limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
 async def extract_data(
-    request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    coding_scheme: str = Form(...),
+    enhanced_extraction: bool = Form(False),
 ):
     """Extract data from PDF using provided coding scheme"""
 
@@ -288,12 +291,13 @@ async def extract_data(
         raise HTTPException(400, f"Error parsing coding scheme: {e}")
 
     try:
-        # Get PDF processor instance
-        pdf_processor = get_pdf_processor()
-
-        # Extract text from PDF
+        # Extract text from PDF (with automatic MinerU → PyPDF fallback if configured)
         logger.info("🔍 Starting text extraction from PDF...")
-        extraction_result: PDFExtractionResult = await pdf_processor.extract_text_from_pdf(contents)
+        if enhanced_extraction:
+            logger.info("✨ Enhanced extraction requested by user")
+        extraction_result: PDFExtractionResult = await PDFProcessorFactory.extract_with_fallback(
+            contents, enhanced_extraction=enhanced_extraction
+        )
 
         text = extraction_result.full_text
 
@@ -304,7 +308,8 @@ async def extract_data(
         text_length = len(text)
         logger.info(f"📃 Extracted {text_length:,} characters from PDF")
 
-        # Chunk if needed
+        # Chunk if needed (use PyPDF processor for chunking - chunking is processor-agnostic)
+        pdf_processor = PDFProcessorFactory.create(PDFProcessorType.PYPDF)
         chunks = await pdf_processor.chunk_text(text)
         logger.info(f"📦 Text split into {len(chunks)} chunks for processing")
 
@@ -435,7 +440,10 @@ async def extract_data(
 @router.post("/extract/stream")
 @limiter.limit(f"{settings.EXTRACTION_RATE_LIMIT_PER_MINUTE} per minute")
 async def extract_data_stream(
-    request: Request, pdf_file: UploadFile = File(...), coding_scheme: str = Form(...)
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    coding_scheme: str = Form(...),
+    enhanced_extraction: bool = Form(False),
 ):
     """
     Extract data from PDF using streaming responses to bypass Lightsail 60s timeout.
@@ -546,17 +554,35 @@ async def extract_data_stream(
                 )
                 return
 
-            # Extract text from PDF
-            pdf_processor = get_pdf_processor()
-            yield (
-                json.dumps(
-                    {"type": "progress", "message": "Extracting text from PDF...", "progress": 10}
+            # Extract text from PDF (with automatic MinerU → PyPDF fallback if configured)
+            if enhanced_extraction:
+                logger.info("✨ Enhanced extraction requested by user")
+                yield (
+                    json.dumps(
+                        {
+                            "type": "progress",
+                            "message": "Using enhanced extraction (tables/figures)...",
+                            "progress": 10,
+                        }
+                    )
+                    + "\n"
                 )
-                + "\n"
-            )
+            else:
+                yield (
+                    json.dumps(
+                        {
+                            "type": "progress",
+                            "message": "Extracting text from PDF...",
+                            "progress": 10,
+                        }
+                    )
+                    + "\n"
+                )
 
-            extraction_result: PDFExtractionResult = await pdf_processor.extract_text_from_pdf(
-                contents
+            extraction_result: PDFExtractionResult = (
+                await PDFProcessorFactory.extract_with_fallback(
+                    contents, enhanced_extraction=enhanced_extraction
+                )
             )
             text = extraction_result.full_text
 
@@ -581,7 +607,8 @@ async def extract_data_stream(
                 + "\n"
             )
 
-            # Chunk text
+            # Chunk text (use PyPDF processor for chunking - chunking is processor-agnostic)
+            pdf_processor = PDFProcessorFactory.create(PDFProcessorType.PYPDF)
             chunks = await pdf_processor.chunk_text(text)
             yield (
                 json.dumps(
