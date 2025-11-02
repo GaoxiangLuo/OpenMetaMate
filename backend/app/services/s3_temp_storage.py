@@ -1,5 +1,6 @@
 """S3 temporary storage service for MinerU PDF hosting."""
 
+import asyncio
 import logging
 import uuid
 
@@ -44,15 +45,19 @@ class S3TempStorage:
         file_id = str(uuid.uuid4())
         s3_key = f"{self.prefix}{file_id}.pdf"
 
-        try:
-            logger.info(f"📤 Uploading PDF to S3: {s3_key}")
-
+        def _upload():
             self.s3_client.put_object(
                 Bucket=self.bucket,
                 Key=s3_key,
                 Body=pdf_content,
                 ContentType="application/pdf",
             )
+
+        try:
+            logger.info(f"📤 Uploading PDF to S3: {s3_key}")
+
+            # Run synchronous boto3 call in thread pool to avoid blocking event loop
+            await asyncio.to_thread(_upload)
 
             logger.info(f"✅ PDF uploaded successfully: {s3_key}")
             return s3_key
@@ -104,10 +109,15 @@ class S3TempStorage:
         Note:
             Failures are logged but not raised (cleanup is best-effort)
         """
+
+        def _delete():
+            self.s3_client.delete_object(Bucket=self.bucket, Key=s3_key)
+
         try:
             logger.info(f"🗑️ Deleting temp file from S3: {s3_key}")
 
-            self.s3_client.delete_object(Bucket=self.bucket, Key=s3_key)
+            # Run synchronous boto3 call in thread pool to avoid blocking event loop
+            await asyncio.to_thread(_delete)
 
             logger.info(f"✅ Temp file deleted successfully: {s3_key}")
 

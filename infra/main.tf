@@ -431,15 +431,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "pdf_temp" {
   }
 }
 
-# Enable versioning (optional, for safety)
-resource "aws_s3_bucket_versioning" "pdf_temp" {
-  bucket = aws_s3_bucket.pdf_temp.id
-
-  versioning_configuration {
-    status = "Disabled" # Not needed for temp files
-  }
-}
-
 # Server-side encryption
 resource "aws_s3_bucket_server_side_encryption_configuration" "pdf_temp" {
   bucket = aws_s3_bucket.pdf_temp.id

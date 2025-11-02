@@ -9,7 +9,7 @@ import re
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import httpx
 
@@ -45,6 +45,22 @@ class MinerUPDFProcessor(BasePDFProcessor):
         self.s3_storage = S3TempStorage()
 
         logger.info("🚀 MinerUPDFProcessor initialized")
+
+    @staticmethod
+    def _normalize_caption(caption: Union[List[str], str, None]) -> str:
+        """Normalize caption from list or string to single string.
+
+        Args:
+            caption: Caption as list of strings, single string, or None
+
+        Returns:
+            Normalized caption string (empty if None)
+        """
+        if not caption:
+            return ""
+        if isinstance(caption, list):
+            return " ".join(caption).strip()
+        return str(caption).strip()
 
     async def extract_text_from_pdf(self, pdf_content: bytes) -> PDFExtractionResult:
         """Extract text from PDF using MinerU API.
@@ -327,52 +343,36 @@ class MinerUPDFProcessor(BasePDFProcessor):
 
                     elif block_type == "table":
                         # Include table with caption and body
-                        # Note: caption and footnote are lists of strings
-                        caption = block.get("table_caption", [])
+                        caption = self._normalize_caption(block.get("table_caption"))
                         body = block.get("table_body", "").strip()
-                        footnote = block.get("table_footnote", [])
+                        footnote = self._normalize_caption(block.get("table_footnote"))
 
                         parts = []
                         if caption:
-                            caption_text = (
-                                " ".join(caption) if isinstance(caption, list) else str(caption)
-                            )
-                            parts.append(f"[TABLE CAPTION] {caption_text.strip()}")
+                            parts.append(f"[TABLE CAPTION] {caption}")
                         if body:
                             parts.append(f"[TABLE]\n{body}\n[/TABLE]")
                         if footnote:
-                            footnote_text = (
-                                " ".join(footnote) if isinstance(footnote, list) else str(footnote)
-                            )
-                            if footnote_text.strip():
-                                parts.append(f"[TABLE FOOTNOTE] {footnote_text.strip()}")
+                            parts.append(f"[TABLE FOOTNOTE] {footnote}")
 
                         text = "\n".join(parts) if parts else None
 
                     elif block_type == "image":
                         # Include figure with caption
-                        # Note: caption and footnote are lists of strings
-                        caption = block.get("image_caption", [])
-                        footnote = block.get("image_footnote", [])
+                        caption = self._normalize_caption(block.get("image_caption"))
+                        footnote = self._normalize_caption(block.get("image_footnote"))
                         img_path = block.get("img_path", "").strip()
 
                         parts = []
                         if caption:
-                            caption_text = (
-                                " ".join(caption) if isinstance(caption, list) else str(caption)
-                            )
-                            parts.append(f"[FIGURE] {caption_text.strip()}")
+                            parts.append(f"[FIGURE] {caption}")
                         else:
                             parts.append("[FIGURE]")
 
                         if img_path:
                             parts.append(f"(Image: {img_path})")
                         if footnote:
-                            footnote_text = (
-                                " ".join(footnote) if isinstance(footnote, list) else str(footnote)
-                            )
-                            if footnote_text.strip():
-                                parts.append(f"[FIGURE FOOTNOTE] {footnote_text.strip()}")
+                            parts.append(f"[FIGURE FOOTNOTE] {footnote}")
 
                         text = " ".join(parts) if parts else None
 
@@ -384,16 +384,13 @@ class MinerUPDFProcessor(BasePDFProcessor):
 
                     elif block_type == "code":
                         # Include code block with optional caption
-                        caption = block.get("code_caption", [])
+                        caption = self._normalize_caption(block.get("code_caption"))
                         body = block.get("code_body", "").strip()
                         sub_type = block.get("sub_type", "")
 
                         parts = []
                         if caption:
-                            caption_text = (
-                                " ".join(caption) if isinstance(caption, list) else caption
-                            )
-                            parts.append(f"[CODE CAPTION] {caption_text}")
+                            parts.append(f"[CODE CAPTION] {caption}")
 
                         if body:
                             if sub_type == "algorithm":
