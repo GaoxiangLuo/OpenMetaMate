@@ -304,7 +304,19 @@ resource "aws_lightsail_container_service" "backend" {
   name  = "${var.app_name}-backend"
   power = var.container_service_power
   scale = var.container_service_scale
-  
+
+  # Attach SSL certificates for custom domains (prevents removal on terraform apply)
+  public_domain_names {
+    certificate {
+      certificate_name = "MetaMate"
+      domain_names     = [var.domain_name]
+    }
+    certificate {
+      certificate_name = "MetaMate-API"
+      domain_names     = ["api.${var.domain_name}"]
+    }
+  }
+
   tags = {
     Name = "${var.app_name}-backend"
   }

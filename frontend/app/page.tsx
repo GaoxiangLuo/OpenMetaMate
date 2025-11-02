@@ -943,12 +943,18 @@ export default function MetaMateChatPage() {
             </div>
           }
           right={
-            <PdfViewerPanel
-              fileUrl={activePdfUrl}
-              fileName={activePdfName}
-              citations={activeCitations}
-              activeIndex={activeCitationIndex}
-            />
+            activePdfUrl ? (
+              <PdfViewerPanel
+                fileUrl={activePdfUrl}
+                fileName={activePdfName}
+                citations={activeCitations}
+                activeIndex={activeCitationIndex}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500">
+                <p className="text-sm">No PDF selected</p>
+              </div>
+            )
           }
         />
         {/* Right Sidebar: Extraction History */}
@@ -973,8 +979,8 @@ export default function MetaMateChatPage() {
                       key={entry.id}
                       className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors group"
                     >
-                      <div className="flex justify-between items-center gap-2">
-                        <div className="min-w-0 flex-1">
+                      <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
+                        <div className="min-w-0 overflow-hidden">
                           <p
                             className="font-medium text-xs text-primary-jhuBlue dark:text-slate-100 truncate"
                             title={entry.fileName}
@@ -988,7 +994,7 @@ export default function MetaMateChatPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30 flex-shrink-0"
+                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30"
                           onClick={() => viewHistoryItem(entry)}
                           title="View this extraction in chat"
                         >
