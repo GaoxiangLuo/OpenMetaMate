@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { PDFViewer, type PDFViewerRef, type PluginRegistry, type ScrollCapability } from "@embedpdf/react-pdf-viewer"
+import { PDFViewer, type PDFViewerRef, type PluginRegistry, type ScrollCapability, ZoomMode } from "@embedpdf/react-pdf-viewer"
 import * as pdfjsLib from "pdfjs-dist"
 import { FileWarning } from "lucide-react"
 import type { Citation } from "@/lib/types"
@@ -18,9 +18,16 @@ interface PdfViewerPanelProps {
   fileName?: string
   citations: Citation[]
   activeIndex: number
+  footerHeight?: number
 }
 
-export default function PdfViewerPanel({ fileUrl, fileName, citations, activeIndex }: PdfViewerPanelProps) {
+export default function PdfViewerPanel({
+  fileUrl,
+  fileName,
+  citations,
+  activeIndex,
+  footerHeight,
+}: PdfViewerPanelProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [pageLabels, setPageLabels] = useState<string[] | null>(null)
   const viewerRef = useRef<PDFViewerRef>(null)
@@ -267,6 +274,7 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
                   scrollbar: { track: "#f1f5f9", thumb: "rgba(104,172,229,0.7)", thumbHover: "#68ACE5" },
                 },
               },
+              zoom: { defaultZoomLevel: ZoomMode.FitWidth },
               tabBar: "never",
               disabledCategories: [
                 "annotation",
@@ -293,7 +301,10 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
         )}
       </div>
 
-      <footer className="px-4 py-2.5 border-t-2 border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-900/20">
+      <footer
+        className="px-4 py-2.5 border-t-2 border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-900/20 flex items-center"
+        style={footerHeight ? { minHeight: footerHeight } : undefined}
+      >
         <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
           {"🌍🌲 "}
           <span className="font-semibold">Environmental Impact:</span> Each query uses ~0.34Wh and ~0.3ml water. Each
