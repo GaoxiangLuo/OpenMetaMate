@@ -1,20 +1,16 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { pdfjs, Document, Page } from "react-pdf"
-import type { PDFDocumentProxy } from "pdfjs-dist"
-import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, FileWarning } from "lucide-react"
+import { PDFViewer, type PDFViewerRef, type PluginRegistry, type ScrollCapability } from "@embedpdf/react-pdf-viewer"
+import * as pdfjsLib from "pdfjs-dist"
+import { FileWarning } from "lucide-react"
 import type { Citation } from "@/lib/types"
 import { extractLabelCandidates } from "@/lib/utils"
 
-import "react-pdf/dist/Page/AnnotationLayer.css"
-import "react-pdf/dist/Page/TextLayer.css"
-
-// Initialize PDF.js worker once per module load
-if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
+// Initialize pdfjs-dist worker for metadata extraction only (page labels)
+if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
   const workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)
-  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc.toString()
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc.toString()
 }
 
 interface PdfViewerPanelProps {
@@ -24,22 +20,17 @@ interface PdfViewerPanelProps {
   activeIndex: number
 }
 
-const ZOOM_STEP = 0.2
-const MIN_ZOOM = 0.5
-const MAX_ZOOM = 2.4
-
 export default function PdfViewerPanel({ fileUrl, fileName, citations, activeIndex }: PdfViewerPanelProps) {
   const [numPages, setNumPages] = useState<number>(0)
-  const [pageNumber, setPageNumber] = useState<number>(1)
-  const [zoomMultiplier, setZoomMultiplier] = useState<number>(1)
   const [pageLabels, setPageLabels] = useState<string[] | null>(null)
-  const viewerContainerRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<PDFViewerRef>(null)
+  const scrollCapabilityRef = useRef<ScrollCapability | null>(null)
   const isMountedRef = useRef<boolean>(true)
 
   const safeIndex = citations.length > 0 ? Math.min(activeIndex, citations.length - 1) : 0
   const activeCitation = citations[safeIndex]
 
-  // Cleanup effect to track component mount status
+  // Track component mount status
   useEffect(() => {
     isMountedRef.current = true
     return () => {
@@ -47,52 +38,63 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
     }
   }, [])
 
+  // Reset state when fileUrl changes
   useEffect(() => {
     if (!fileUrl) {
       setNumPages(0)
-      setPageNumber(1)
-      setZoomMultiplier(1)
       setPageLabels(null)
+      scrollCapabilityRef.current = null
     } else {
-      setPageNumber(1)
-      setZoomMultiplier(1)
+      setPageLabels(null)
+      scrollCapabilityRef.current = null
     }
   }, [fileUrl])
 
-  const changePage = useCallback(
-    (offset: number) => {
-      setPageNumber((prev) => {
-        if (!fileUrl || numPages === 0) {
-          return 1
+  // Extract page labels via pdfjs-dist (headless, no rendering)
+  useEffect(() => {
+    if (!fileUrl) return
+
+    let cancelled = false
+
+    const loadLabels = async () => {
+      try {
+        const pdf = await pdfjsLib.getDocument(fileUrl).promise
+        if (cancelled || !isMountedRef.current) return
+
+        const pages = pdf.numPages
+        setNumPages(pages)
+
+        const labels = await pdf.getPageLabels()
+        if (cancelled || !isMountedRef.current) return
+
+        if (Array.isArray(labels) && labels.length === pages) {
+          setPageLabels(labels)
+        } else {
+          setPageLabels(null)
         }
-
-        const next = prev + offset
-        if (next < 1) return 1
-        if (numPages && next > numPages) return numPages
-        return next
-      })
-    },
-    [fileUrl, numPages],
-  )
-
-  const handlePageRenderError = (error: Error) => {
-    const message = (error?.message || "").toLowerCase()
-    if (error?.name === "AbortError" || message.includes("cancel")) {
-      return
+      } catch (error) {
+        if (!cancelled && isMountedRef.current) {
+          console.warn("Failed to load page labels via pdfjs-dist", error)
+          setPageLabels(null)
+        }
+      }
     }
-    console.error("Failed to render PDF page", error)
-  }
 
-  const increaseZoom = () => {
-    setZoomMultiplier((prev) => Math.min(MAX_ZOOM, prev + ZOOM_STEP))
-  }
+    loadLabels()
+    return () => {
+      cancelled = true
+    }
+  }, [fileUrl])
 
-  const decreaseZoom = () => {
-    setZoomMultiplier((prev) => Math.max(MIN_ZOOM, prev - ZOOM_STEP))
-  }
+  // Capture scroll capability when viewer is ready
+  const handleViewerReady = useCallback((registry: PluginRegistry) => {
+    const scrollPlugin = registry.getPlugin("scroll")
+    if (scrollPlugin?.provides) {
+      scrollCapabilityRef.current = scrollPlugin.provides() as ScrollCapability
+    }
+  }, [])
 
-  // Simple scale calculation - just use zoom multiplier directly
-  const effectiveScale = zoomMultiplier
+  // --- Page-label resolution logic (preserved from original implementation) ---
 
   const resolvedLabelLookup = useMemo(() => {
     if (!pageLabels || pageLabels.length === 0) {
@@ -204,11 +206,34 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
     [applyOffset, numericOffset, numPages, resolvedLabelLookup],
   )
 
+  // --- Citation-driven navigation via scrollToPage ---
+
   useEffect(() => {
-    if (citations.length > 0 && activeCitation) {
-      setPageNumber(resolvePageNumber(activeCitation.pageNumber ?? 1))
-    } else {
-      setPageNumber(1)
+    if (citations.length === 0 || !activeCitation) return
+
+    const targetPage = resolvePageNumber(activeCitation.pageNumber ?? 1)
+
+    const navigate = () => {
+      const scroll = scrollCapabilityRef.current
+      if (scroll) {
+        scroll.scrollToPage({ pageNumber: targetPage, behavior: "smooth" })
+        return
+      }
+
+      // Retry if viewer isn't ready yet (e.g., on initial load with a pre-selected citation)
+      const retryTimeout = setTimeout(() => {
+        const retryScroll = scrollCapabilityRef.current
+        if (retryScroll) {
+          retryScroll.scrollToPage({ pageNumber: targetPage, behavior: "smooth" })
+        }
+      }, 1000)
+
+      return retryTimeout
+    }
+
+    const timeout = navigate()
+    return () => {
+      if (timeout) clearTimeout(timeout)
     }
   }, [citations, activeCitation, resolvePageNumber])
 
@@ -221,122 +246,58 @@ export default function PdfViewerPanel({ fileUrl, fileName, citations, activeInd
         </p>
       </header>
 
-      <div className="flex-1 flex flex-col">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800/60 text-sm text-slate-600 dark:text-slate-300">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => changePage(-1)}
-              disabled={!fileUrl || numPages <= 1 || pageNumber <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span>
-              Page {pageNumber}
-              {numPages > 0 ? ` / ${numPages}` : ""}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => changePage(1)}
-              disabled={!fileUrl || numPages === 0 || pageNumber >= numPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+      <div className="flex-1 overflow-hidden">
+        {fileUrl ? (
+          <PDFViewer
+            ref={viewerRef}
+            config={{
+              src: fileUrl,
+              theme: {
+                preference: "light",
+                light: {
+                  background: { app: "#f1f5f9", surface: "#ffffff", surfaceAlt: "#f8fafc" },
+                  accent: {
+                    primary: "#002D72",
+                    primaryHover: "#0077D8",
+                    primaryActive: "#001a44",
+                    primaryLight: "#e8f0fe",
+                    primaryForeground: "#ffffff",
+                  },
+                  border: { default: "#e2e8f0", subtle: "#f1f5f9" },
+                  scrollbar: { track: "#f1f5f9", thumb: "rgba(104,172,229,0.7)", thumbHover: "#68ACE5" },
+                },
+              },
+              tabBar: "never",
+              disabledCategories: [
+                "annotation",
+                "redaction",
+                "document-export",
+                "document-print",
+                "capture",
+                "history",
+                "spread",
+                "rotate",
+              ],
+            }}
+            onReady={handleViewerReady}
+            style={{ width: "100%", height: "100%" }}
+          />
+        ) : (
+          <div className="flex flex-col items-center text-center gap-2 p-6 text-sm text-slate-600 dark:text-slate-300 h-full justify-center">
+            <FileWarning className="h-6 w-6 text-slate-400" />
+            <p>No PDF selected yet.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px]">
+              Upload a document and choose a citation to jump to the relevant page.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={decreaseZoom}
-              disabled={zoomMultiplier <= MIN_ZOOM}
-            >
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-            <span>{Math.round(zoomMultiplier * 100)}%</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={increaseZoom}
-              disabled={zoomMultiplier >= MAX_ZOOM}
-            >
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        <div
-          ref={viewerContainerRef}
-          className="flex-1 overflow-auto bg-slate-100 dark:bg-slate-900 flex justify-center items-start p-4"
-        >
-          {fileUrl ? (
-            <Document
-              file={fileUrl}
-              loading={<div className="flex items-center justify-center p-8 text-slate-500">Loading PDF...</div>}
-              error={<div className="flex items-center justify-center p-8 text-red-500">Failed to load PDF</div>}
-              onLoadSuccess={(pdf: PDFDocumentProxy) => {
-                const pages = pdf.numPages
-                setNumPages(pages)
-                setPageNumber((current) => {
-                  if (pages <= 0) return 1
-                  const clamped = Math.min(Math.max(current, 1), pages)
-                  return clamped
-                })
-
-                pdf
-                  .getPageLabels()
-                  .then((labels: string[] | null) => {
-                    // Only update state if component is still mounted
-                    if (!isMountedRef.current) return
-
-                    if (Array.isArray(labels) && labels.length === pages) {
-                      setPageLabels(labels)
-                    } else {
-                      setPageLabels(null)
-                    }
-                  })
-                  .catch((error: Error) => {
-                    // Only update state if component is still mounted
-                    if (!isMountedRef.current) return
-
-                    console.warn("Failed to load page labels", error)
-                    setPageLabels(null)
-                  })
-              }}
-              onLoadError={(error: Error) => console.error("Failed to load PDF", error)}
-            >
-              <Page
-                pageNumber={pageNumber}
-                scale={effectiveScale}
-                renderAnnotationLayer={false}
-                renderTextLayer={false}
-                onRenderError={handlePageRenderError}
-                onLoadSuccess={() => {
-                  // Page loaded successfully
-                }}
-              />
-            </Document>
-          ) : (
-            <div className="flex flex-col items-center text-center gap-2 p-6 text-sm text-slate-600 dark:text-slate-300">
-              <FileWarning className="h-6 w-6 text-slate-400" />
-              <p>No PDF selected yet.</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-[260px]">
-                Upload a document and choose a citation to jump to the relevant page.
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       <footer className="px-4 py-2.5 border-t-2 border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-900/20">
         <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
-          🌍🌲 <span className="font-semibold">Environmental Impact:</span> Each query uses ~0.34Wh and ~0.3ml water.
-          Each PDF extraction may use 5-30x this amount depending on document size.{" "}
+          {"🌍🌲 "}
+          <span className="font-semibold">Environmental Impact:</span> Each query uses ~0.34Wh and ~0.3ml water. Each
+          PDF extraction may use 5-30x this amount depending on document size.{" "}
           <a
             href="https://blog.samaltman.com/the-gentle-singularity"
             target="_blank"
