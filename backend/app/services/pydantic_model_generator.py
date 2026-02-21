@@ -17,13 +17,15 @@ def set_in_hierarchy(path_parts, node, data_type, definition):
     """
     if len(path_parts) == 1:
         # This is the final field
-        field_name = path_parts[0]
+        field_name = path_parts[0].strip()
         field_name = field_name.lower().replace(" ", "_")
+        field_name = "_".join(p for p in field_name.split("_") if p)
         node[field_name] = definition
     else:
         # This is a class node
-        class_name = path_parts[0]
+        class_name = path_parts[0].strip()
         class_name_key = class_name.lower().replace(" ", "_")
+        class_name_key = "_".join(p for p in class_name_key.split("_") if p)
         if class_name_key not in node:
             node[class_name_key] = {}
         set_in_hierarchy(path_parts[1:], node[class_name_key], data_type, definition)
@@ -99,7 +101,7 @@ def coding_scheme_items_to_pydantic_model(coding_scheme_items: List[Dict[str, An
 
                 definition = item.get("description", "").strip()
 
-                parts = name.split("/")
+                parts = [p.strip() for p in name.split("/") if p.strip()]
                 logger.debug(f"🔧 Adding field: {name}")
 
                 # Set in hierarchy - data_type no longer needed
