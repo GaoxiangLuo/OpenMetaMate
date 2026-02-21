@@ -744,7 +744,7 @@ export default function MetaMateChatPage() {
       return
     }
     const csvData = convertAllExtractionsToCSV(extractionHistory)
-    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" })
+    const blob = new Blob(["\uFEFF", csvData], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
     link.href = URL.createObjectURL(blob)
     link.download = `MetaMate_All_Extractions_${new Date().toISOString().split("T")[0]}.csv`
