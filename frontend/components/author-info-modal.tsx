@@ -121,9 +121,10 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
                   <span>
-                    Based on user study feedback, we shipped new features including a collapsible extraction history
-                    panel, scroll-to-extraction navigation, fit-to-width PDF viewing, an updated default codebook,
-                    hierarchical coding scheme support, and full Unicode/Greek letter rendering in CSV exports.
+                    Based on insights from our user study, we redesigned much of the MetaMate experience: a new
+                    embedded PDF viewer, a collapsible extraction history panel, granular real-time progress feedback, a revamped coding scheme
+                    editor with guided workflows and unsaved-changes protection, richer codebook support including
+                    hierarchical schemes and full Unicode rendering in exports.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -406,7 +407,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                     want to be honest about the resources AI tools consume.
                   </p>
                   <p className="mt-2">
-                    In the summer of 2025, during a professional event, one of our team members met a fellow PhD student
+                    In the summer of 2025, during a professional event, I (Xue Wang) met a fellow PhD student
                     — a mother of two from a Texas community near newly constructed data centers. She shared that her
                     community was experiencing water shortages that were affecting her family&apos;s daily life. That
                     conversation stayed with us. The environmental costs of AI are not abstract — they affect real
