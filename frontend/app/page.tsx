@@ -1005,6 +1005,7 @@ export default function MetaMateChatPage() {
                 citations={activeCitations}
                 activeIndex={activeCitationIndex}
                 footerHeight={footerHeight}
+                onOpenMindfulTips={() => setIsAuthorInfoModalOpen(true)}
               />
             ) : (
               <div className="h-full flex flex-col">
@@ -1016,17 +1017,16 @@ export default function MetaMateChatPage() {
                   style={footerHeight ? { minHeight: footerHeight } : undefined}
                 >
                   <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
-                    {"🌍🌲 "}
-                    <span className="font-semibold">Environmental Impact:</span> Each query uses ~0.34Wh and ~0.3ml
-                    water. Each PDF extraction may use 5-30x this amount depending on document size.{" "}
-                    <a
-                      href="https://blog.samaltman.com/the-gentle-singularity"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    {"🌱 "}
+                    Get more from each query. Learn tips that save time and reduce MetaMate&apos;s environmental
+                    footprint.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthorInfoModalOpen(true)}
                       className="text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:underline font-medium"
                     >
-                      [Source]
-                    </a>
+                      Learn more &rarr;
+                    </button>
                   </p>
                 </footer>
               </div>
