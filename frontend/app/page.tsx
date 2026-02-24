@@ -313,6 +313,7 @@ export default function MetaMateChatPage() {
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(true)
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
+  const [scrollToMindful, setScrollToMindful] = useState(false)
   const [enhancedExtraction, setEnhancedExtraction] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
@@ -1009,7 +1010,10 @@ export default function MetaMateChatPage() {
                 citations={activeCitations}
                 activeIndex={activeCitationIndex}
                 footerHeight={footerHeight}
-                onOpenMindfulTips={() => setIsAuthorInfoModalOpen(true)}
+                onOpenMindfulTips={() => {
+                  setScrollToMindful(true)
+                  setIsAuthorInfoModalOpen(true)
+                }}
               />
             ) : (
               <div className="h-full flex flex-col">
@@ -1026,7 +1030,10 @@ export default function MetaMateChatPage() {
                     footprint.{" "}
                     <button
                       type="button"
-                      onClick={() => setIsAuthorInfoModalOpen(true)}
+                      onClick={() => {
+                        setScrollToMindful(true)
+                        setIsAuthorInfoModalOpen(true)
+                      }}
                       className="text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:underline font-medium"
                     >
                       Learn more &rarr;
@@ -1128,7 +1135,14 @@ export default function MetaMateChatPage() {
         initialScheme={codingScheme}
         onSaveScheme={handleSaveSchemeInApp}
       />
-      <AuthorInfoModal isOpen={isAuthorInfoModalOpen} onOpenChange={setIsAuthorInfoModalOpen} />
+      <AuthorInfoModal
+        isOpen={isAuthorInfoModalOpen}
+        onOpenChange={(open) => {
+          setIsAuthorInfoModalOpen(open)
+          if (!open) setScrollToMindful(false)
+        }}
+        scrollToMindful={scrollToMindful}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -10,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 interface AuthorInfoModalProps {
   isOpen: boolean
   onOpenChange: (isOpen: boolean) => void
+  scrollToMindful?: boolean
 }
 
 const citations = {
@@ -26,8 +28,25 @@ const citations = {
   mla: `Wang, Xue, and Gaoxiang Luo. "Metamate: Large Language Model to the Rescue of Automated Data Extraction for Educational Systematic Reviews and Meta-analyses." EdArXiv, 2 May 2024. Web.`,
 }
 
-export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModalProps) {
+export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful }: AuthorInfoModalProps) {
   const { toast } = useToast()
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const mindfulRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    // Wait for the dialog and ScrollArea to fully render
+    const raf = requestAnimationFrame(() => {
+      const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]")
+      if (!viewport) return
+      if (scrollToMindful && mindfulRef.current) {
+        viewport.scrollTop = mindfulRef.current.offsetTop
+      } else {
+        viewport.scrollTop = 0
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isOpen, scrollToMindful])
 
   const copyToClipboard = (text: string, format: string) => {
     navigator.clipboard
@@ -59,7 +78,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[65vh] p-1 pr-4 mt-2">
+        <ScrollArea ref={scrollAreaRef} className="max-h-[65vh] p-1 pr-4 mt-2">
           <div className="space-y-6 py-4">
             <section>
               <div className="text-center mb-4">
@@ -287,7 +306,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <div className="flex items-start gap-2">
                   <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
                   <span>
-                    <strong>Reinforcement Learning:</strong> post-train a specialized small base LLM for educational
+                    <strong>Reinforcement Learning:</strong> finetune a specialized small base LLM for educational
                     context extraction with proper reward functions.
                   </span>
                 </div>
@@ -389,7 +408,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
               </div>
             </section>
 
-            <section>
+            <section ref={mindfulRef}>
               <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
                 <Leaf className="h-5 w-5 text-green-600" />
                 Using MetaMate Mindfully
