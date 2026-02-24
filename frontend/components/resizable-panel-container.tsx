@@ -68,7 +68,11 @@ export default function ResizablePanelContainer({
     <div ref={containerRef} className="flex flex-1 overflow-hidden">
       <div
         className="flex flex-col min-w-0"
-        style={typeof leftWidth === "number" ? { width: leftWidth, flexBasis: leftWidth } : undefined}
+        style={
+          typeof leftWidth === "number"
+            ? { width: leftWidth, flexBasis: leftWidth }
+            : { width: `${initialLeftRatio * 100}%`, flexBasis: `${initialLeftRatio * 100}%` }
+        }
       >
         {left}
       </div>

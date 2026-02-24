@@ -312,7 +312,7 @@ export default function MetaMateChatPage() {
   const [codingScheme, setCodingScheme] = useState<CodingSchemeItem[]>(defaultCodingScheme)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractingFileCount, setExtractingFileCount] = useState(0)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages)
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(true)
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
@@ -347,13 +347,9 @@ export default function MetaMateChatPage() {
     return () => observer.disconnect()
   }, [])
 
-  // Initialize messages on client side only to avoid hydration issues
+  // Enable client-only rendering (e.g. timestamps) after hydration
   useEffect(() => {
     setIsClient(true)
-    if (messages.length === 0) {
-      setMessages(getInitialMessages())
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
