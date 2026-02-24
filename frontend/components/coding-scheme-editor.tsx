@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,8 +11,17 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,6 +46,7 @@ export default function CodingSchemeEditor({
   onSaveScheme,
 }: CodingSchemeEditorProps) {
   const [scheme, setScheme] = useState<CodingSchemeItem[]>(initialScheme)
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
   const fileUploadRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
@@ -44,6 +54,37 @@ export default function CodingSchemeEditor({
     // Deep copy to avoid mutating the prop directly
     setScheme(JSON.parse(JSON.stringify(initialScheme)))
   }, [initialScheme, isOpen])
+
+  const hasUnsavedChanges = useCallback(() => {
+    if (scheme.length !== initialScheme.length) return true
+    return scheme.some((item, index) => {
+      const original = initialScheme[index]
+      return (
+        item.id !== original.id ||
+        item.name !== original.name ||
+        item.dataType !== original.dataType ||
+        item.description !== original.description ||
+        item.includeInExtraction !== original.includeInExtraction
+      )
+    })
+  }, [scheme, initialScheme])
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (!open && hasUnsavedChanges()) {
+      setShowUnsavedWarning(true)
+      return
+    }
+    onOpenChange(open)
+  }
+
+  const handleConfirmDiscard = () => {
+    setShowUnsavedWarning(false)
+    // Delay closing the main dialog so the AlertDialog overlay fully unmounts first,
+    // otherwise Radix leaves pointer-events:none on the body.
+    requestAnimationFrame(() => {
+      onOpenChange(false)
+    })
+  }
 
   const handleAddItem = () => {
     setScheme([
@@ -132,7 +173,8 @@ export default function CodingSchemeEditor({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-[700px] md:max-w-[850px] bg-white dark:bg-slate-900 border-primary-jhuBlue shadow-xl">
         <DialogHeader className="pb-4 border-b border-slate-200 dark:border-slate-700">
           <DialogTitle className="text-xl font-semibold text-primary-jhuBlue dark:text-primary-jhuLightBlue">
@@ -143,7 +185,9 @@ export default function CodingSchemeEditor({
             <span>
               Use a forward slash{" "}
               <code className="font-mono bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-xs">/</code> in the
-              &apos;Name&apos; field to indicate hierarchy (e.g., &quot;Demographics/Age&quot;).
+              &apos;Name&apos; field to indicate hierarchy (e.g., &quot;Demographics/Age&quot;). You can{" "}
+              <strong>Download</strong> your scheme to save it for later, or <strong>Upload</strong> a previously saved
+              scheme to quickly restore it across sessions.
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -261,14 +305,13 @@ export default function CodingSchemeEditor({
           </div>
         </ScrollArea>
         <DialogFooter className="pt-4 border-t border-slate-200 dark:border-slate-700">
-          <DialogClose asChild>
-            <Button
-              variant="outline"
-              className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-            >
-              Cancel
-            </Button>
-          </DialogClose>
+          <Button
+            variant="outline"
+            onClick={() => handleDialogOpenChange(false)}
+            className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleSaveChangesToApp}
             className="bg-primary-jhuBlue hover:bg-primary-jhuBlue/90 text-white dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue dark:hover:bg-primary-jhuLightBlue/90"
@@ -278,5 +321,29 @@ export default function CodingSchemeEditor({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+      <AlertDialogContent className="bg-white dark:bg-slate-900 border-primary-jhuBlue">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+            Unsaved Changes
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes to the coding scheme. If you close without applying, your changes will be lost.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="border-slate-300 dark:border-slate-600">
+            Keep Editing
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirmDiscard}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            Discard Changes
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
