@@ -992,7 +992,8 @@ export default function MetaMateChatPage() {
                     <span className="relative group">
                       <InfoIcon className="h-3.5 w-3.5 text-muted-foreground/50 cursor-pointer" />
                       <span className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block w-56 px-2.5 py-1.5 text-xs text-popover-foreground bg-popover border rounded-md shadow-md z-50">
-                        Uses advanced OCR &amp; vision models for higher quality extraction of tables, figures, and equations. Takes ~2-3 min longer per document.
+                        Uses advanced OCR &amp; vision models for higher quality extraction of tables, figures, and
+                        equations. Takes ~2-3 min longer per document.
                       </span>
                     </span>
                   </div>
@@ -1128,7 +1129,6 @@ export default function MetaMateChatPage() {
         onSaveScheme={handleSaveSchemeInApp}
       />
       <AuthorInfoModal isOpen={isAuthorInfoModalOpen} onOpenChange={setIsAuthorInfoModalOpen} />
-
     </div>
   )
 }

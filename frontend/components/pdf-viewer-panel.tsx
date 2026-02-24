@@ -1,7 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { PDFViewer, type PDFViewerRef, type PluginRegistry, type ScrollCapability, ZoomMode } from "@embedpdf/react-pdf-viewer"
+import {
+  PDFViewer,
+  type PDFViewerRef,
+  type PluginRegistry,
+  type ScrollCapability,
+  ZoomMode,
+} from "@embedpdf/react-pdf-viewer"
 import * as pdfjsLib from "pdfjs-dist"
 import { FileWarning } from "lucide-react"
 import type { Citation } from "@/lib/types"

@@ -174,176 +174,177 @@ export default function CodingSchemeEditor({
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-[700px] md:max-w-[850px] bg-white dark:bg-slate-900 border-primary-jhuBlue shadow-xl">
-        <DialogHeader className="pb-4 border-b border-slate-200 dark:border-slate-700">
-          <DialogTitle className="text-xl font-semibold text-primary-jhuBlue dark:text-primary-jhuLightBlue">
-            Edit Study Coding Scheme
-          </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500 dark:text-slate-400 flex items-start gap-2 mt-2 p-2 bg-jhu-light-blue/10 rounded-md border border-jhu-light-blue/30">
-            <Info className="h-4 w-4 mt-0.5 text-jhu-light-blue shrink-0" />
-            <span>
-              Use a forward slash{" "}
-              <code className="font-mono bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-xs">/</code> in the
-              &apos;Name&apos; field to indicate hierarchy (e.g., &quot;Demographics/Age&quot;). You can{" "}
-              <strong>Download</strong> your scheme to save it for later, or <strong>Upload</strong> a previously saved
-              scheme to quickly restore it across sessions.
-            </span>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex justify-end gap-2 mt-2 mb-1 px-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fileUploadRef.current?.click()}
-            className="text-xs text-jhu-accent-4 border-jhu-accent-4 hover:bg-jhu-accent-4/10"
-          >
-            <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Scheme
-          </Button>
-          <input type="file" accept=".json" ref={fileUploadRef} onChange={handleUploadSchemeFile} className="hidden" />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadScheme}
-            className="text-xs text-jhu-accent-1 border-jhu-accent-1 hover:bg-jhu-accent-1/10"
-          >
-            <DownloadIcon className="mr-1.5 h-3.5 w-3.5" /> Download Scheme
-          </Button>
-        </div>
-        <ScrollArea className="max-h-[55vh] p-1 pr-4">
-          <div className="space-y-4 py-4">
-            {scheme.map((item, index) => (
-              <div
-                key={item.id}
-                className="p-3 border border-slate-300 dark:border-slate-700 rounded-md space-y-3 bg-slate-50 dark:bg-slate-800/30 shadow-subtle"
-              >
-                <div className="flex justify-between items-center">
-                  <h4 className="font-semibold text-base text-primary-jhuBlue dark:text-primary-jhuLightBlue">
-                    Item {index + 1}
-                  </h4>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveItem(item.id)}
-                    aria-label="Remove item"
-                    className="text-red-500 hover:bg-red-500/10 h-7 w-7"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor={`name-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
-                      Name
-                    </Label>
-                    <Input
-                      id={`name-${item.id}`}
-                      value={item.name}
-                      onChange={(e) => handleItemChange(item.id, "name", e.target.value)}
-                      placeholder="e.g., Study Title, Demographics/Age"
-                      className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`dataType-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
-                      Data Type
-                    </Label>
-                    <Select
-                      value={item.dataType}
-                      onValueChange={(value: CodingSchemeItem["dataType"]) => handleDataTypeChange(item.id, value)}
-                    >
-                      <SelectTrigger
-                        id={`dataType-${item.id}`}
-                        className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue"
-                      >
-                        <SelectValue placeholder="Select data type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-                        <SelectItem value="Text">Text</SelectItem>
-                        <SelectItem value="Numeric">Numeric</SelectItem>
-                        <SelectItem value="Boolean">Boolean</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor={`description-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
-                    Description
-                  </Label>
-                  <Textarea
-                    id={`description-${item.id}`}
-                    value={item.description}
-                    onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
-                    placeholder="Briefly describe this data element"
-                    rows={3}
-                    className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue min-h-[90px]"
-                  />
-                </div>
-                <div className="flex items-center space-x-2 pt-1">
-                  <Checkbox
-                    id={`include-${item.id}`}
-                    checked={item.includeInExtraction}
-                    onCheckedChange={(checked) => handleItemChange(item.id, "includeInExtraction", !!checked)}
-                    className="border-primary-jhuBlue data-[state=checked]:bg-primary-jhuBlue data-[state=checked]:text-white dark:border-primary-jhuLightBlue dark:data-[state=checked]:bg-primary-jhuLightBlue dark:data-[state=checked]:text-primary-jhuBlue"
-                  />
-                  <Label
-                    htmlFor={`include-${item.id}`}
-                    className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
-                  >
-                    Include this item in current extraction
-                  </Label>
-                </div>
-              </div>
-            ))}
+      <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="sm:max-w-[700px] md:max-w-[850px] bg-white dark:bg-slate-900 border-primary-jhuBlue shadow-xl">
+          <DialogHeader className="pb-4 border-b border-slate-200 dark:border-slate-700">
+            <DialogTitle className="text-xl font-semibold text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+              Edit Study Coding Scheme
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500 dark:text-slate-400 flex items-start gap-2 mt-2 p-2 bg-jhu-light-blue/10 rounded-md border border-jhu-light-blue/30">
+              <Info className="h-4 w-4 mt-0.5 text-jhu-light-blue shrink-0" />
+              <span>
+                Use a forward slash{" "}
+                <code className="font-mono bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-xs">/</code> in the
+                &apos;Name&apos; field to indicate hierarchy (e.g., &quot;Demographics/Age&quot;). You can{" "}
+                <strong>Download</strong> your scheme to save it for later, or <strong>Upload</strong> a previously
+                saved scheme to quickly restore it across sessions.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-2 mb-1 px-1">
             <Button
               variant="outline"
-              onClick={handleAddItem}
-              className="w-full mt-4 border-jhu-accent-4 text-jhu-accent-4 hover:bg-jhu-accent-4/10 dark:text-jhu-accent-3 dark:border-jhu-accent-3 dark:hover:bg-jhu-accent-3/20"
+              size="sm"
+              onClick={() => fileUploadRef.current?.click()}
+              className="text-xs text-jhu-accent-4 border-jhu-accent-4 hover:bg-jhu-accent-4/10"
             >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+              <Upload className="mr-1.5 h-3.5 w-3.5" /> Upload Scheme
+            </Button>
+            <input
+              type="file"
+              accept=".json"
+              ref={fileUploadRef}
+              onChange={handleUploadSchemeFile}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadScheme}
+              className="text-xs text-jhu-accent-1 border-jhu-accent-1 hover:bg-jhu-accent-1/10"
+            >
+              <DownloadIcon className="mr-1.5 h-3.5 w-3.5" /> Download Scheme
             </Button>
           </div>
-        </ScrollArea>
-        <DialogFooter className="pt-4 border-t border-slate-200 dark:border-slate-700">
-          <Button
-            variant="outline"
-            onClick={() => handleDialogOpenChange(false)}
-            className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSaveChangesToApp}
-            className="bg-primary-jhuBlue hover:bg-primary-jhuBlue/90 text-white dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue dark:hover:bg-primary-jhuLightBlue/90"
-          >
-            <Save className="mr-2 h-4 w-4" /> Apply Scheme to Session
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
-      <AlertDialogContent className="bg-white dark:bg-slate-900 border-primary-jhuBlue">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-primary-jhuBlue dark:text-primary-jhuLightBlue">
-            Unsaved Changes
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            You have unsaved changes to the coding scheme. If you close without applying, your changes will be lost.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="border-slate-300 dark:border-slate-600">
-            Keep Editing
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleConfirmDiscard}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
-            Discard Changes
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <ScrollArea className="max-h-[55vh] p-1 pr-4">
+            <div className="space-y-4 py-4">
+              {scheme.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="p-3 border border-slate-300 dark:border-slate-700 rounded-md space-y-3 bg-slate-50 dark:bg-slate-800/30 shadow-subtle"
+                >
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-semibold text-base text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+                      Item {index + 1}
+                    </h4>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveItem(item.id)}
+                      aria-label="Remove item"
+                      className="text-red-500 hover:bg-red-500/10 h-7 w-7"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor={`name-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
+                        Name
+                      </Label>
+                      <Input
+                        id={`name-${item.id}`}
+                        value={item.name}
+                        onChange={(e) => handleItemChange(item.id, "name", e.target.value)}
+                        placeholder="e.g., Study Title, Demographics/Age"
+                        className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`dataType-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
+                        Data Type
+                      </Label>
+                      <Select
+                        value={item.dataType}
+                        onValueChange={(value: CodingSchemeItem["dataType"]) => handleDataTypeChange(item.id, value)}
+                      >
+                        <SelectTrigger
+                          id={`dataType-${item.id}`}
+                          className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue"
+                        >
+                          <SelectValue placeholder="Select data type" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
+                          <SelectItem value="Text">Text</SelectItem>
+                          <SelectItem value="Numeric">Numeric</SelectItem>
+                          <SelectItem value="Boolean">Boolean</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor={`description-${item.id}`} className="text-xs text-slate-600 dark:text-slate-400">
+                      Description
+                    </Label>
+                    <Textarea
+                      id={`description-${item.id}`}
+                      value={item.description}
+                      onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
+                      placeholder="Briefly describe this data element"
+                      rows={3}
+                      className="text-sm border-slate-300 dark:border-slate-600 focus:border-primary-jhuLightBlue dark:focus:border-primary-jhuLightBlue min-h-[90px]"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 pt-1">
+                    <Checkbox
+                      id={`include-${item.id}`}
+                      checked={item.includeInExtraction}
+                      onCheckedChange={(checked) => handleItemChange(item.id, "includeInExtraction", !!checked)}
+                      className="border-primary-jhuBlue data-[state=checked]:bg-primary-jhuBlue data-[state=checked]:text-white dark:border-primary-jhuLightBlue dark:data-[state=checked]:bg-primary-jhuLightBlue dark:data-[state=checked]:text-primary-jhuBlue"
+                    />
+                    <Label
+                      htmlFor={`include-${item.id}`}
+                      className="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                      Include this item in current extraction
+                    </Label>
+                  </div>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                onClick={handleAddItem}
+                className="w-full mt-4 border-jhu-accent-4 text-jhu-accent-4 hover:bg-jhu-accent-4/10 dark:text-jhu-accent-3 dark:border-jhu-accent-3 dark:hover:bg-jhu-accent-3/20"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+              </Button>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="pt-4 border-t border-slate-200 dark:border-slate-700">
+            <Button
+              variant="outline"
+              onClick={() => handleDialogOpenChange(false)}
+              className="border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveChangesToApp}
+              className="bg-primary-jhuBlue hover:bg-primary-jhuBlue/90 text-white dark:bg-primary-jhuLightBlue dark:text-primary-jhuBlue dark:hover:bg-primary-jhuLightBlue/90"
+            >
+              <Save className="mr-2 h-4 w-4" /> Apply Scheme to Session
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+        <AlertDialogContent className="bg-white dark:bg-slate-900 border-primary-jhuBlue">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+              Unsaved Changes
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes to the coding scheme. If you close without applying, your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-slate-300 dark:border-slate-600">Keep Editing</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDiscard} className="bg-red-600 hover:bg-red-700 text-white">
+              Discard Changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

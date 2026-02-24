@@ -89,9 +89,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <p className="text-xs text-slate-500 dark:text-slate-500">
                   <sup>1</sup>Johns Hopkins University, <sup>2</sup>University of Minnesota, Twin Cities
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-3">
-                  *Equal contribution
-                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-3">*Equal contribution</p>
                 <div className="flex justify-center gap-4">
                   <a
                     href="https://doi.org/10.35542/osf.io/wn3cd"
@@ -121,10 +119,10 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
                   <span>
-                    Based on insights from our user study, we redesigned much of the MetaMate experience: a new
-                    embedded PDF viewer, a collapsible extraction history panel, granular real-time progress feedback, a revamped coding scheme
-                    editor with guided workflows and unsaved-changes protection, richer codebook support including
-                    hierarchical schemes and full Unicode rendering in exports.
+                    Based on insights from our user study, we redesigned much of the MetaMate experience: a new embedded
+                    PDF viewer, a collapsible extraction history panel, granular real-time progress feedback, a revamped
+                    coding scheme editor with guided workflows and unsaved-changes protection, richer codebook support
+                    including hierarchical schemes and full Unicode rendering in exports.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -132,14 +130,11 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                   <span>
                     Our user study paper{" "}
                     <em>
-                      &quot;MetaMate: Understanding How Educational Researchers Experience AI-Assisted Data Extraction for
-                      Systematic Reviews&quot;
+                      &quot;MetaMate: Understanding How Educational Researchers Experience AI-Assisted Data Extraction
+                      for Systematic Reviews&quot;
                     </em>{" "}
                     has been accepted to the{" "}
-                    <strong>
-                      2026 CHI Conference on Human Factors in Computing Systems (Poster)
-                    </strong>
-                    .
+                    <strong>2026 CHI Conference on Human Factors in Computing Systems (Poster)</strong>.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -403,16 +398,15 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 <div>
                   <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Why this matters to us</h4>
                   <p>
-                    We built MetaMate because we believe AI can meaningfully support educational researchers. But we also
-                    want to be honest about the resources AI tools consume.
+                    We built MetaMate because we believe AI can meaningfully support educational researchers. But we
+                    also want to be honest about the resources AI tools consume.
                   </p>
                   <p className="mt-2">
-                    In the summer of 2025, during a professional event, I (Xue Wang) met a fellow PhD student
-                    — a mother of two from a Texas community near newly constructed data centers. She shared that her
-                    community was experiencing water shortages that were affecting her family&apos;s daily life. That
-                    conversation stayed with us. The environmental costs of AI are not abstract — they affect real
-                    communities and real families, including the next generation we study and serve as educational
-                    researchers.
+                    In the summer of 2025, during a professional event, I (Xue Wang) met a fellow PhD student — a mother
+                    of two from a Texas community near newly constructed data centers. She shared that her community was
+                    experiencing water shortages that were affecting her family&apos;s daily life. That conversation
+                    stayed with us. The environmental costs of AI are not abstract — they affect real communities and
+                    real families, including the next generation we study and serve as educational researchers.
                   </p>
                   <p className="mt-2">
                     Every query to MetaMate uses approximately 0.34 watt-hours of energy and about one-fifteenth of a
