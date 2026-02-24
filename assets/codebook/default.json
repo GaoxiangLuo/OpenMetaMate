@@ -182,20 +182,6 @@
     "includeInExtraction": true
   },
   {
-    "id": "1749488396780kran6",
-    "name": "Participant/Is Control Group",
-    "dataType": "Boolean",
-    "description": "Whether or not participant is in control or comparison group.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488426257vvgh1",
-    "name": "Participant/Is Experiment Group",
-    "dataType": "Boolean",
-    "description": "Whether of not participant is in experiment or treatment group.",
-    "includeInExtraction": true
-  },
-  {
     "id": "1749488436575312d3",
     "name": "Participant/Extra Information",
     "dataType": "Text",

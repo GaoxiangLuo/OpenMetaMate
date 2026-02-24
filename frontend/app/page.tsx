@@ -7,26 +7,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   FileText,
   Settings2,
-  Settings,
   BotMessageSquare,
   BarChart3,
   Download,
   Paperclip,
   Send,
   Trash2,
-  Eye,
   Loader2,
   AlertTriangle,
   CheckCircle2,
-  MessageSquareText,
   InfoIcon,
   Activity,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react"
 import CodingSchemeEditor from "@/components/coding-scheme-editor"
 import ExtractionItemDisplay from "@/components/extraction-item-display"
@@ -312,10 +309,10 @@ export default function MetaMateChatPage() {
   const [codingScheme, setCodingScheme] = useState<CodingSchemeItem[]>(defaultCodingScheme)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractingFileCount, setExtractingFileCount] = useState(0)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>(getInitialMessages)
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
+  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(true)
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [enhancedExtraction, setEnhancedExtraction] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
@@ -328,14 +325,27 @@ export default function MetaMateChatPage() {
     activeIndex: number
   } | null>(null)
   const chatAreaRef = useRef<HTMLDivElement>(null)
+  const inputAreaRef = useRef<HTMLDivElement>(null)
+  const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined)
 
-  // Initialize messages on client side only to avoid hydration issues
+  // Measure chat button row height (plus parent padding) so PDF footer and history footer can match
+  useEffect(() => {
+    const el = inputAreaRef.current
+    if (!el) return
+    const observer = new ResizeObserver(() => {
+      const parent = el.parentElement
+      const paddingY = parent
+        ? parseFloat(getComputedStyle(parent).paddingTop) + parseFloat(getComputedStyle(parent).paddingBottom)
+        : 0
+      setFooterHeight(el.offsetHeight + paddingY)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  // Enable client-only rendering (e.g. timestamps) after hydration
   useEffect(() => {
     setIsClient(true)
-    if (messages.length === 0) {
-      setMessages(getInitialMessages())
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -542,15 +552,64 @@ export default function MetaMateChatPage() {
       isProcessing: true,
     })
 
+    // Smooth progress interpolation so the UI never looks stuck
+    let interpolatedProgress = 0
+    let interpolationTimer: ReturnType<typeof setInterval> | null = null
+    let lastRealMessage = ""
+
+    const stopInterpolation = () => {
+      if (interpolationTimer) {
+        clearInterval(interpolationTimer)
+        interpolationTimer = null
+      }
+    }
+
+    const startInterpolation = (realProgress: number, message: string) => {
+      stopInterpolation()
+      interpolatedProgress = realProgress
+      lastRealMessage = message
+      // Slowly creep toward 99% (but never reach it)
+      interpolationTimer = setInterval(() => {
+        const remaining = 99 - interpolatedProgress
+        if (remaining <= 0.5) return
+        interpolatedProgress += remaining * 0.12
+        updateMessage(fileMessageId, {
+          fileSpecificMessage: `${lastRealMessage} (${Math.round(interpolatedProgress)}%)`,
+        })
+      }, 800)
+    }
+
     try {
       // Call the real API with the file and full scheme (API will filter includeInExtraction)
       // Use streaming endpoint to bypass Lightsail 60s timeout limit
       const extractedData = await callExtractionAPI(file, currentScheme, useEnhanced, (message, progress) => {
-        // Update progress in real-time
+        // Update with real progress and restart interpolation
         updateMessage(fileMessageId, {
           fileSpecificMessage: `${message} (${progress}%)`,
         })
+        startInterpolation(progress, message)
       })
+      stopInterpolation()
+
+      // Smoothly animate progress to 100% before showing final result
+      const animateTo100 = () =>
+        new Promise<void>((resolve) => {
+          let current = interpolatedProgress
+          const tick = setInterval(() => {
+            current += (100 - current) * 0.15
+            if (current >= 99.5) {
+              clearInterval(tick)
+              updateMessage(fileMessageId, { fileSpecificMessage: "Extraction complete! (100%)" })
+              resolve()
+            } else {
+              updateMessage(fileMessageId, {
+                fileSpecificMessage: `Finalizing results... (${Math.round(current)}%)`,
+              })
+            }
+          }, 100)
+        })
+      await animateTo100()
+
       const schemeSnapshot = currentScheme.map((item) => ({ ...item }))
 
       updateMessage(fileMessageId, {
@@ -570,6 +629,7 @@ export default function MetaMateChatPage() {
       }
       return { fileName: file.name, status: "success", data: extractedData, pdfKey: fileKey, messageId: fileMessageId }
     } catch (error) {
+      stopInterpolation()
       const errorMessage = (error as Error).message
       updateMessage(fileMessageId, {
         isProcessing: false,
@@ -676,7 +736,7 @@ export default function MetaMateChatPage() {
       return
     }
     const csvData = convertAllExtractionsToCSV(extractionHistory)
-    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" })
+    const blob = new Blob(["\uFEFF", csvData], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
     link.href = URL.createObjectURL(blob)
     link.download = `MetaMate_All_Extractions_${new Date().toISOString().split("T")[0]}.csv`
@@ -688,24 +748,13 @@ export default function MetaMateChatPage() {
   }
 
   const viewHistoryItem = (item: ExtractionHistoryItem) => {
-    addMessage({
-      type: "user-upload",
-      content: (
-        <div className="flex items-center gap-2">
-          <MessageSquareText className="h-4 w-4 text-white/80" />
-          <span>Show extraction for: {item.fileName}</span>
-        </div>
-      ),
-    })
-    addMessage({
-      type: "extraction-result",
-      fileName: item.fileName,
-      fileSpecificMessage: "", // Removed verbose message to keep UI clean
-      data: item.data,
-      pdfKey: item.pdfKey,
-      codingSchemeUsed: item.codingSchemeUsed,
-      historyId: item.id,
-    })
+    // Scroll to the original extraction message in the chat
+    if (item.messageId) {
+      const messageEl = document.getElementById(`msg-${item.messageId}`)
+      if (messageEl) {
+        messageEl.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }
 
     const firstGroundedCitations =
       Object.values(item.data).find((resultItem) => resultItem.citations && resultItem.citations.length > 0)
@@ -714,9 +763,6 @@ export default function MetaMateChatPage() {
     if (item.pdfKey && firstGroundedCitations.length > 0) {
       selectPdfForViewer(item.pdfKey, item.fileName, firstGroundedCitations, 0)
     }
-
-    // Immediate scroll to bottom when viewing extraction
-    setTimeout(scrollToBottom, 300) // Slightly longer delay since we're adding two messages
   }
 
   const removeSelectedFile = (fileNameToRemove: string) => {
@@ -779,6 +825,7 @@ export default function MetaMateChatPage() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
+                      id={`msg-${msg.id}`}
                       className={`flex ${msg.type === "user-upload" ? "justify-end" : "justify-start"} mb-3.5`}
                     >
                       <div
@@ -896,7 +943,7 @@ export default function MetaMateChatPage() {
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-2.5">
+                <div ref={inputAreaRef} className="flex items-center gap-2.5">
                   <Button
                     variant="outline"
                     onClick={triggerFileInput}
@@ -927,17 +974,29 @@ export default function MetaMateChatPage() {
                     )}
                     {isExtracting
                       ? `Extracting ${extractingFileCount} file(s)...`
-                      : `Extract Data from ${selectedFiles.length > 0 ? selectedFiles.length + " file(s)" : "PDF(s)"}`}
+                      : `Extract ${selectedFiles.length > 0 ? selectedFiles.length + " PDF(s)" : "PDF(s)"}`}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsSettingsDialogOpen(true)}
-                    className="p-2.5 border-primary-jhuBlue/70 text-primary-jhuBlue hover:bg-primary-jhuLightBlue/10 dark:text-primary-jhuLightBlue dark:border-primary-jhuLightBlue/70 dark:hover:bg-primary-jhuBlue/30"
-                    title="Extraction Settings"
-                  >
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Settings</span>
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Switch
+                      id="enhanced-extraction-toggle"
+                      checked={enhancedExtraction}
+                      onCheckedChange={setEnhancedExtraction}
+                      disabled={isExtracting}
+                    />
+                    <label
+                      htmlFor="enhanced-extraction-toggle"
+                      className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                    >
+                      Enhanced
+                    </label>
+                    <span className="relative group">
+                      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground/50 cursor-pointer" tabIndex={0} />
+                      <span className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block group-focus-within:block w-56 px-2.5 py-1.5 text-xs text-popover-foreground bg-popover border rounded-md shadow-md z-50">
+                        Uses advanced OCR &amp; vision models for higher quality extraction of tables, figures, and
+                        equations. Takes ~2-3 min longer per document.
+                      </span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -949,38 +1008,74 @@ export default function MetaMateChatPage() {
                 fileName={activePdfName}
                 citations={activeCitations}
                 activeIndex={activeCitationIndex}
+                footerHeight={footerHeight}
+                onOpenMindfulTips={() => setIsAuthorInfoModalOpen(true)}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500">
-                <p className="text-sm">No PDF selected</p>
+              <div className="h-full flex flex-col">
+                <div className="flex-1 flex items-center justify-center text-slate-300 dark:text-slate-600">
+                  <p className="text-2xl font-semibold">PDF Viewer</p>
+                </div>
+                <footer
+                  className="px-4 py-2.5 border-t-2 border-green-200 dark:border-green-800/60 bg-green-50 dark:bg-green-900/20 flex items-center"
+                  style={footerHeight ? { minHeight: footerHeight } : undefined}
+                >
+                  <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                    {"🌱 "}
+                    Get more from each query. Learn tips that save time and reduce MetaMate&apos;s environmental
+                    footprint.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthorInfoModalOpen(true)}
+                      className="text-primary-jhuBlue dark:text-primary-jhuLightBlue hover:underline font-medium"
+                    >
+                      Learn more &rarr;
+                    </button>
+                  </p>
+                </footer>
               </div>
             )
           }
         />
         {/* Right Sidebar: Extraction History */}
-        <aside className="w-80 border-l border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 flex flex-col shadow-lg">
-          <CardHeader className="p-3.5 border-b border-slate-200 dark:border-slate-700/60">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue">
-              <BarChart3 className="h-5 w-5" />
-              Extraction History
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Recent extractions this session.
-            </CardDescription>
-          </CardHeader>
-          <ScrollArea className="flex-1">
-            <CardContent className="p-2.5">
-              {extractionHistory.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-3">No extractions yet.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {extractionHistory.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors group"
-                    >
-                      <div className="grid grid-cols-[1fr_auto] gap-2 items-center">
-                        <div className="min-w-0 overflow-hidden">
+        <aside
+          className={`${isHistoryPanelOpen ? "w-80" : "w-10"} border-l border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 flex flex-col shadow-lg transition-[width] duration-200 ease-in-out`}
+        >
+          {isHistoryPanelOpen ? (
+            <>
+              <CardHeader className="p-3.5 border-b border-slate-200 dark:border-slate-700/60">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2 text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+                    <BarChart3 className="h-5 w-5" />
+                    Extraction History
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    onClick={() => setIsHistoryPanelOpen(false)}
+                    title="Hide extraction history"
+                  >
+                    <PanelRightClose className="h-4 w-4" />
+                  </Button>
+                </div>
+                <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Recent extractions this session.
+                </CardDescription>
+              </CardHeader>
+              <ScrollArea className="flex-1">
+                <CardContent className="p-2.5">
+                  {extractionHistory.length === 0 ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-3">No extractions yet.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {extractionHistory.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="p-2 rounded-md border border-slate-200 dark:border-slate-700/70 bg-slate-50 dark:bg-slate-700/40 hover:bg-slate-100 dark:hover:bg-slate-700/70 transition-colors cursor-pointer"
+                          onClick={() => viewHistoryItem(entry)}
+                          title="View this extraction in chat"
+                        >
                           <p
                             className="font-medium text-xs text-primary-jhuBlue dark:text-slate-100 truncate"
                             title={entry.fileName}
@@ -990,31 +1085,37 @@ export default function MetaMateChatPage() {
                           <p className="text-xs text-slate-500 dark:text-slate-400">
                             {entry.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-primary-jhuBlue/70 dark:text-primary-jhuLightBlue/70 group-hover:text-primary-jhuBlue dark:group-hover:text-primary-jhuLightBlue hover:bg-primary-jhuLightBlue/10 dark:hover:bg-primary-jhuBlue/30"
-                          onClick={() => viewHistoryItem(entry)}
-                          title="View this extraction in chat"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </ScrollArea>
+              {extractionHistory.length > 0 && (
+                <div
+                  className="p-2.5 border-t border-slate-200 dark:border-slate-700/60 flex items-center"
+                  style={footerHeight ? { minHeight: footerHeight } : undefined}
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full text-sm py-1.5 px-3 text-jhu-accent-4 dark:text-jhu-accent-3 border-jhu-accent-4/70 dark:border-jhu-accent-3/70 hover:bg-jhu-accent-4/10 dark:hover:bg-jhu-accent-3/20"
+                    onClick={downloadAllHistoryCSV}
+                  >
+                    <Download className="mr-1.5 h-4 w-4" /> Download All History (CSV)
+                  </Button>
+                </div>
               )}
-            </CardContent>
-          </ScrollArea>
-          {extractionHistory.length > 0 && (
-            <div className="p-2.5 border-t border-slate-200 dark:border-slate-700/60">
+            </>
+          ) : (
+            <div className="flex flex-col items-center pt-2.5">
               <Button
-                variant="outline"
-                className="w-full text-sm py-1.5 px-3 text-jhu-accent-4 dark:text-jhu-accent-3 border-jhu-accent-4/70 dark:border-jhu-accent-3/70 hover:bg-jhu-accent-4/10 dark:hover:bg-jhu-accent-3/20"
-                onClick={downloadAllHistoryCSV}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                onClick={() => setIsHistoryPanelOpen(true)}
+                title="Show extraction history"
               >
-                <Download className="mr-1.5 h-4 w-4" /> Download All History (CSV)
+                <PanelRightOpen className="h-4 w-4" />
               </Button>
             </div>
           )}
@@ -1028,34 +1129,6 @@ export default function MetaMateChatPage() {
         onSaveScheme={handleSaveSchemeInApp}
       />
       <AuthorInfoModal isOpen={isAuthorInfoModalOpen} onOpenChange={setIsAuthorInfoModalOpen} />
-
-      {/* Settings Dialog */}
-      <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Extraction Settings</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="enhanced-extraction"
-                checked={enhancedExtraction}
-                onCheckedChange={(checked) => setEnhancedExtraction(checked === true)}
-                className="mt-0.5 data-[state=checked]:bg-primary-jhuBlue data-[state=checked]:border-primary-jhuBlue data-[state=checked]:text-white dark:data-[state=checked]:bg-primary-jhuLightBlue dark:data-[state=checked]:border-primary-jhuLightBlue dark:data-[state=checked]:text-primary-jhuBlue"
-              />
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="enhanced-extraction" className="text-sm font-medium leading-none cursor-pointer">
-                  Enhanced extraction for tables and figures
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Uses advanced processing to better extract tables, figures, and mathematical equations. This provides
-                  higher quality results but takes approximately 2-3 minutes longer per document.
-                </p>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Copy, ExternalLink, Coffee, Heart } from "lucide-react"
+import { Copy, ExternalLink, Coffee, Heart, Leaf } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface AuthorInfoModalProps {
@@ -74,7 +74,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                     rel="noopener noreferrer"
                     className="font-medium text-primary-jhuBlue hover:text-primary-jhuLightBlue dark:text-primary-jhuLightBlue dark:hover:text-primary-jhuBlue"
                   >
-                    Xue Wang¹
+                    Xue Wang<sup>*,1</sup>
                   </a>
                   ,
                   <a
@@ -83,12 +83,13 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                     rel="noopener noreferrer"
                     className="ml-1 font-medium text-primary-jhuBlue hover:text-primary-jhuLightBlue dark:text-primary-jhuLightBlue dark:hover:text-primary-jhuBlue"
                   >
-                    Gaoxiang Luo²
+                    Gaoxiang Luo<sup>*,2</sup>
                   </a>
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-500 mb-3">
-                  ¹Johns Hopkins University, ²University of Minnesota, Twin Cities
+                <p className="text-xs text-slate-500 dark:text-slate-500">
+                  <sup>1</sup>Johns Hopkins University, <sup>2</sup>University of Minnesota, Twin Cities
                 </p>
+                <p className="text-xs text-slate-500 dark:text-slate-500 italic mb-3">*Equal contribution</p>
                 <div className="flex justify-center gap-4">
                   <a
                     href="https://doi.org/10.35542/osf.io/wn3cd"
@@ -115,6 +116,27 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
                 📢 News & Updates
               </h3>
               <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
+                  <span>
+                    Based on insights from our user study, we redesigned much of the MetaMate experience: a new embedded
+                    PDF viewer, a collapsible extraction history panel, granular real-time progress feedback, a revamped
+                    coding scheme editor with guided workflows and unsaved-changes protection, richer codebook support
+                    including hierarchical schemes and full Unicode rendering in exports.
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
+                  <span>
+                    Our user study paper{" "}
+                    <em>
+                      &quot;MetaMate: Understanding How Educational Researchers Experience AI-Assisted Data Extraction
+                      for Systematic Reviews&quot;
+                    </em>{" "}
+                    has been accepted to the{" "}
+                    <strong>2026 CHI Conference on Human Factors in Computing Systems (Poster)</strong>.
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2025]</span>
                   <span>
@@ -369,6 +391,65 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
 
             <section>
               <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
+                <Leaf className="h-5 w-5 text-green-600" />
+                Using MetaMate Mindfully
+              </h3>
+              <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Why this matters to us</h4>
+                  <p>
+                    We built MetaMate because we believe AI can meaningfully support educational researchers. But we
+                    also want to be honest about the resources AI tools consume.
+                  </p>
+                  <p className="mt-2">
+                    In the summer of 2025, during a professional event, I (Xue Wang) met a fellow PhD student — a mother
+                    of two from a Texas community near newly constructed data centers. She shared that her community was
+                    experiencing water shortages that were affecting her family&apos;s daily life. That conversation
+                    stayed with us. The environmental costs of AI are not abstract — they affect real communities and
+                    real families, including the next generation we study and serve as educational researchers.
+                  </p>
+                  <p className="mt-2">
+                    Every query to MetaMate uses approximately 0.34 watt-hours of energy and about one-fifteenth of a
+                    teaspoon of water. An extraction task uses roughly 5 to 30 times that amount, depending on text
+                    length. Individually, these numbers are small. Collectively, across thousands of queries, they are
+                    not.
+                  </p>
+                  <p className="mt-2">
+                    This is not a reason to stop using AI. It is a reason to use it thoughtfully. The good news is that
+                    the practices that reduce environmental cost are the same ones that give you better, faster results.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                    Three tips for smarter, greener extractions
+                  </h4>
+                  <ol className="list-decimal list-outside ml-5 space-y-2">
+                    <li>
+                      <strong>Maximize each query — extract everything at once.</strong> Develop a complete codebook
+                      before you begin. Rather than extracting a few data elements, then coming back later to extract
+                      more from the same articles, define all the data elements you need upfront. This avoids redundant
+                      uploads and repeated processing of the same documents.
+                    </li>
+                    <li>
+                      <strong>Test before you scale — pilot first, then batch.</strong> Your first codebook may not
+                      extract exactly what you expect. Run your complete codebook on a small set of articles first,
+                      review the results, and revise your definitions. Once you&apos;re confident, upload your full set
+                      of articles for extraction. This saves both your time and computational resources.
+                    </li>
+                    <li>
+                      <strong>Save your work after each session.</strong> Because MetaMate doesn&apos;t require a login,
+                      your extracted data is not stored between sessions. Before closing the page, download your coded
+                      data as a CSV file using the button at the bottom right of the extraction page. This simple step
+                      means you won&apos;t need to re-upload and re-process the same articles — saving your effort and
+                      reducing unnecessary computation.
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue flex items-center gap-2">
                 <Coffee className="h-5 w-5 text-amber-600" />
                 Support MetaMate
               </h3>
@@ -391,7 +472,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange }: AuthorInfoModa
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Developed at University of Minnesota and Johns Hopkins University
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">© 2025 MetaMate Authors</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">© 2024-2026 MetaMate Authors</p>
             </div>
           </div>
         </ScrollArea>
