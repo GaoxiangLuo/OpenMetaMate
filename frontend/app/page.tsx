@@ -7,13 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   FileText,
   Settings2,
-  Settings,
   BotMessageSquare,
   BarChart3,
   Download,
@@ -316,7 +313,6 @@ export default function MetaMateChatPage() {
   const [extractionHistory, setExtractionHistory] = useState<ExtractionHistoryItem[]>([])
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(true)
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [enhancedExtraction, setEnhancedExtraction] = useState(false)
   const [isClient, setIsClient] = useState(false)
   const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
@@ -978,17 +974,28 @@ export default function MetaMateChatPage() {
                     )}
                     {isExtracting
                       ? `Extracting ${extractingFileCount} file(s)...`
-                      : `Extract Data from ${selectedFiles.length > 0 ? selectedFiles.length + " file(s)" : "PDF(s)"}`}
+                      : `Extract ${selectedFiles.length > 0 ? selectedFiles.length + " PDF(s)" : "PDF(s)"}`}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsSettingsDialogOpen(true)}
-                    className="p-2.5 border-primary-jhuBlue/70 text-primary-jhuBlue hover:bg-primary-jhuLightBlue/10 dark:text-primary-jhuLightBlue dark:border-primary-jhuLightBlue/70 dark:hover:bg-primary-jhuBlue/30"
-                    title="Extraction Settings"
-                  >
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Settings</span>
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Switch
+                      id="enhanced-extraction-toggle"
+                      checked={enhancedExtraction}
+                      onCheckedChange={setEnhancedExtraction}
+                      disabled={isExtracting}
+                    />
+                    <label
+                      htmlFor="enhanced-extraction-toggle"
+                      className="text-xs text-muted-foreground cursor-pointer select-none whitespace-nowrap"
+                    >
+                      Enhanced
+                    </label>
+                    <span className="relative group">
+                      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground/50 cursor-pointer" />
+                      <span className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block w-56 px-2.5 py-1.5 text-xs text-popover-foreground bg-popover border rounded-md shadow-md z-50">
+                        Uses advanced OCR &amp; vision models for higher quality extraction of tables, figures, and equations. Takes ~2-3 min longer per document.
+                      </span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1122,33 +1129,6 @@ export default function MetaMateChatPage() {
       />
       <AuthorInfoModal isOpen={isAuthorInfoModalOpen} onOpenChange={setIsAuthorInfoModalOpen} />
 
-      {/* Settings Dialog */}
-      <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Extraction Settings</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-start space-x-3">
-              <Checkbox
-                id="enhanced-extraction"
-                checked={enhancedExtraction}
-                onCheckedChange={(checked) => setEnhancedExtraction(checked === true)}
-                className="mt-0.5 data-[state=checked]:bg-primary-jhuBlue data-[state=checked]:border-primary-jhuBlue data-[state=checked]:text-white dark:data-[state=checked]:bg-primary-jhuLightBlue dark:data-[state=checked]:border-primary-jhuLightBlue dark:data-[state=checked]:text-primary-jhuBlue"
-              />
-              <div className="flex-1 space-y-1">
-                <Label htmlFor="enhanced-extraction" className="text-sm font-medium leading-none cursor-pointer">
-                  Enhanced extraction for tables and figures
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Uses advanced processing to better extract tables, figures, and mathematical equations. This provides
-                  higher quality results but takes approximately 2-3 minutes longer per document.
-                </p>
-              </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
