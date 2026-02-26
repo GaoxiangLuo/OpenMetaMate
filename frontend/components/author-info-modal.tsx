@@ -279,8 +279,8 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                 <div className="flex items-start gap-2">
                   <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
-                    <strong>Enhanced Table/Figure Understanding:</strong> add VLM/OCR/TableFormer integration (e.g.,
-                    MinerU 2.5, DeepSeek OCR, MathPix, etc.)
+                    <strong>Enhanced Table/Figure Understanding:</strong> add Vision Language Model (VLM)/Optical
+                    Character Recognition (OCR)/TableFormer integration (e.g., MinerU 2.5, DeepSeek OCR, MathPix, etc.)
                   </span>
                 </div>
                 <div className="flex items-start gap-2">

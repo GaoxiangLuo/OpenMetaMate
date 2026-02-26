@@ -324,7 +324,9 @@ export default function MetaMateChatPage() {
     fileName?: string
     citations: Citation[]
     activeIndex: number
+    navigationId: number
   } | null>(null)
+  const navigationCounterRef = useRef(0)
   const chatAreaRef = useRef<HTMLDivElement>(null)
   const inputAreaRef = useRef<HTMLDivElement>(null)
   const [footerHeight, setFooterHeight] = useState<number | undefined>(undefined)
@@ -440,11 +442,13 @@ export default function MetaMateChatPage() {
       }
 
       const safeIndex = citations.length > 0 ? Math.min(Math.max(index, 0), citations.length - 1) : 0
+      navigationCounterRef.current += 1
       setViewerSelection({
         pdfKey: fileKey,
         fileName: fileName ?? "PDF Document",
         citations,
         activeIndex: safeIndex,
+        navigationId: navigationCounterRef.current,
       })
     },
     [addMessage],
@@ -538,11 +542,13 @@ export default function MetaMateChatPage() {
 
     registerPdfSource(fileKey, file)
 
+    navigationCounterRef.current += 1
     setViewerSelection({
       pdfKey: fileKey,
       fileName: file.name,
       citations: [],
       activeIndex: 0,
+      navigationId: navigationCounterRef.current,
     })
 
     addMessage({
@@ -553,7 +559,10 @@ export default function MetaMateChatPage() {
       isProcessing: true,
     })
 
-    // Smooth progress interpolation so the UI never looks stuck
+    // Smooth progress interpolation so the UI never looks stuck.
+    // Per-file jitter on rate and interval so batch uploads don't tick in lockstep.
+    const creepRate = 0.09 + Math.random() * 0.06 // 0.09 – 0.15
+    const intervalMs = 650 + Math.random() * 300 // 650 – 950 ms
     let interpolatedProgress = 0
     let interpolationTimer: ReturnType<typeof setInterval> | null = null
     let lastRealMessage = ""
@@ -573,11 +582,11 @@ export default function MetaMateChatPage() {
       interpolationTimer = setInterval(() => {
         const remaining = 99 - interpolatedProgress
         if (remaining <= 0.5) return
-        interpolatedProgress += remaining * 0.12
+        interpolatedProgress += remaining * creepRate
         updateMessage(fileMessageId, {
           fileSpecificMessage: `${lastRealMessage} (${Math.round(interpolatedProgress)}%)`,
         })
-      }, 800)
+      }, intervalMs)
     }
 
     try {
@@ -593,11 +602,12 @@ export default function MetaMateChatPage() {
       stopInterpolation()
 
       // Smoothly animate progress to 100% before showing final result
+      const finishRate = 0.12 + Math.random() * 0.06 // 0.12 – 0.18
       const animateTo100 = () =>
         new Promise<void>((resolve) => {
           let current = interpolatedProgress
           const tick = setInterval(() => {
-            current += (100 - current) * 0.15
+            current += (100 - current) * finishRate
             if (current >= 99.5) {
               clearInterval(tick)
               updateMessage(fileMessageId, { fileSpecificMessage: "Extraction complete! (100%)" })
@@ -757,12 +767,9 @@ export default function MetaMateChatPage() {
       }
     }
 
-    const firstGroundedCitations =
-      Object.values(item.data).find((resultItem) => resultItem.citations && resultItem.citations.length > 0)
-        ?.citations ?? []
-
-    if (item.pdfKey && firstGroundedCitations.length > 0) {
-      selectPdfForViewer(item.pdfKey, item.fileName, firstGroundedCitations, 0)
+    // Switch the PDF viewer to this document at page 1 (no citation navigation)
+    if (item.pdfKey) {
+      selectPdfForViewer(item.pdfKey, item.fileName, [], 0)
     }
   }
 
@@ -774,6 +781,7 @@ export default function MetaMateChatPage() {
   const activePdfName = viewerSelection?.fileName
   const activeCitations = viewerSelection?.citations ?? []
   const activeCitationIndex = viewerSelection?.activeIndex ?? 0
+  const activeNavigationId = viewerSelection?.navigationId ?? 0
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-sans">
@@ -993,8 +1001,8 @@ export default function MetaMateChatPage() {
                     <span className="relative group">
                       <InfoIcon className="h-3.5 w-3.5 text-muted-foreground/50 cursor-pointer" tabIndex={0} />
                       <span className="absolute bottom-full right-0 mb-1.5 hidden group-hover:block group-focus-within:block w-56 px-2.5 py-1.5 text-xs text-popover-foreground bg-popover border rounded-md shadow-md z-50">
-                        Uses advanced OCR &amp; vision models for higher quality extraction of tables, figures, and
-                        equations. Takes ~2-3 min longer per document.
+                        Uses advanced Optical Character Recognition (OCR) &amp; vision models for higher quality
+                        extraction of tables, figures, and equations. Takes ~2-3 min longer per document.
                       </span>
                     </span>
                   </div>
@@ -1009,6 +1017,7 @@ export default function MetaMateChatPage() {
                 fileName={activePdfName}
                 citations={activeCitations}
                 activeIndex={activeCitationIndex}
+                navigationId={activeNavigationId}
                 footerHeight={footerHeight}
                 onOpenMindfulTips={() => {
                   setScrollToMindful(true)

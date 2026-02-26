@@ -24,6 +24,7 @@ interface PdfViewerPanelProps {
   fileName?: string
   citations: Citation[]
   activeIndex: number
+  navigationId?: number
   footerHeight?: number
   onOpenMindfulTips?: () => void
 }
@@ -33,13 +34,16 @@ export default function PdfViewerPanel({
   fileName,
   citations,
   activeIndex,
+  navigationId = 0,
   footerHeight,
   onOpenMindfulTips,
 }: PdfViewerPanelProps) {
   const [numPages, setNumPages] = useState<number>(0)
   const [pageLabels, setPageLabels] = useState<string[] | null>(null)
+  const [layoutReady, setLayoutReady] = useState(false)
   const viewerRef = useRef<PDFViewerRef>(null)
   const scrollCapabilityRef = useRef<ScrollCapability | null>(null)
+  const pendingScrollRef = useRef<number | null>(null)
   const isMountedRef = useRef<boolean>(true)
 
   const safeIndex = citations.length > 0 ? Math.min(activeIndex, citations.length - 1) : 0
@@ -55,13 +59,13 @@ export default function PdfViewerPanel({
 
   // Reset state when fileUrl changes
   useEffect(() => {
+    setLayoutReady(false)
+    scrollCapabilityRef.current = null
     if (!fileUrl) {
       setNumPages(0)
       setPageLabels(null)
-      scrollCapabilityRef.current = null
     } else {
       setPageLabels(null)
-      scrollCapabilityRef.current = null
     }
   }, [fileUrl])
 
@@ -101,11 +105,23 @@ export default function PdfViewerPanel({
     }
   }, [fileUrl])
 
-  // Capture scroll capability when viewer is ready
+  // Capture scroll capability and listen for document layout readiness
   const handleViewerReady = useCallback((registry: PluginRegistry) => {
     const scrollPlugin = registry.getPlugin("scroll")
     if (scrollPlugin?.provides) {
-      scrollCapabilityRef.current = scrollPlugin.provides() as ScrollCapability
+      const capability = scrollPlugin.provides() as ScrollCapability
+      scrollCapabilityRef.current = capability
+      capability.onLayoutReady(() => {
+        setLayoutReady(true)
+        // Directly scroll to pending target once pages are laid out.
+        // This bypasses React's state/effect chain to avoid racing with
+        // the viewer's own initial-scroll-to-page-1 behaviour.
+        const target = pendingScrollRef.current
+        if (target !== null) {
+          capability.scrollToPage({ pageNumber: target, behavior: "instant" })
+          pendingScrollRef.current = null
+        }
+      })
     }
   }, [])
 
@@ -223,34 +239,25 @@ export default function PdfViewerPanel({
 
   // --- Citation-driven navigation via scrollToPage ---
 
+  // Keep pendingScrollRef up-to-date so onLayoutReady can read it for cross-PDF navigation
   useEffect(() => {
-    if (citations.length === 0 || !activeCitation) return
-
+    if (citations.length === 0 || !activeCitation) {
+      pendingScrollRef.current = null
+      return
+    }
     const targetPage = resolvePageNumber(activeCitation.pageNumber ?? 1)
-
-    const navigate = () => {
+    if (layoutReady) {
+      // Viewer already loaded (same-PDF navigation or re-click) — scroll immediately
       const scroll = scrollCapabilityRef.current
       if (scroll) {
         scroll.scrollToPage({ pageNumber: targetPage, behavior: "smooth" })
-        return
       }
-
-      // Retry if viewer isn't ready yet (e.g., on initial load with a pre-selected citation)
-      const retryTimeout = setTimeout(() => {
-        const retryScroll = scrollCapabilityRef.current
-        if (retryScroll) {
-          retryScroll.scrollToPage({ pageNumber: targetPage, behavior: "smooth" })
-        }
-      }, 1000)
-
-      return retryTimeout
+      pendingScrollRef.current = null
+    } else {
+      // Cross-PDF: store target for onLayoutReady to pick up
+      pendingScrollRef.current = targetPage
     }
-
-    const timeout = navigate()
-    return () => {
-      if (timeout) clearTimeout(timeout)
-    }
-  }, [citations, activeCitation, resolvePageNumber])
+  }, [layoutReady, citations, activeCitation, resolvePageNumber, navigationId])
 
   return (
     <section className="h-full flex-1 min-w-[360px] border-l border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
@@ -264,6 +271,7 @@ export default function PdfViewerPanel({
       <div className="flex-1 overflow-hidden">
         {fileUrl ? (
           <PDFViewer
+            key={fileUrl}
             ref={viewerRef}
             config={{
               src: fileUrl,
