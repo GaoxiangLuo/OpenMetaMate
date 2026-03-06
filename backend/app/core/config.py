@@ -167,8 +167,12 @@ class Settings:
 
         if normalized_model.startswith("gpt-4.1"):
             chunk_size = 960_000
+        elif normalized_model.startswith("gpt-5.4"):
+            chunk_size = 960_000
         elif normalized_model.startswith("gpt-5"):
             chunk_size = 360_000
+        elif normalized_model.startswith("gemini"):
+            chunk_size = 960_000
         else:
             chunk_size = self.TEXT_CHUNK_SIZE
 

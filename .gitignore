@@ -217,3 +217,17 @@ terraform.tfvars
 # IDE
 .vscode/
 .DS_Store
+
+# Evaluation
+evaluation/
+
+# Screenshot capture, diagnostics
+screenshot/
+
+# Tutorial video output
+tutorial/
+
+# MCP config
+.mcp.json
+# TypeScript build cache
+*.tsbuildinfo
