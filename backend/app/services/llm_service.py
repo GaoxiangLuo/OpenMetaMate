@@ -128,7 +128,7 @@ class LLMService:
                 "input": messages,
                 "text_format": pydantic_model,
                 "text": {"verbosity": "low"},
-                "reasoning": {"effort": "minimal"},
+                "reasoning": {"effort": "none"},
             }
 
             if temperature is not None:
