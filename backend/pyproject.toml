@@ -4,9 +4,9 @@ version = "2.0.0"
 description = "AI-powered PDF data extraction API"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-    "fastapi==0.104.1",
-    "uvicorn[standard]==0.24.0",
-    "python-multipart==0.0.6",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.18",
     "openai>=1.109.1",
     "pydantic>=2.7.4",
     "slowapi==0.1.9",
