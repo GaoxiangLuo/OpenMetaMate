@@ -41,7 +41,7 @@ docker-compose up
 # Environment setup required: Create .env file with:
 # LLM_API_KEY=your-api-key
 # LLM_API_URL=https://api.openai.com/v1
-# LLM_MODEL=gpt-4o-2025-08-13
+# LLM_MODEL=gpt-5.4-2026-03-05
 # BACKUP_LLM_API_KEY=your-backup-api-key  # Optional: for automatic failover
 # CORS_ORIGINS=http://localhost:3000
 # MAX_FILE_SIZE_MB=10
@@ -77,7 +77,7 @@ docker-compose up
 
 2. **LLM Service Layer**: Abstracted LLM integration with automatic failover
    - Implementation: `backend/app/services/llm_service.py`
-   - Supports OpenAI, Anthropic, OpenRouter, and self-hosted models
+   - Supports OpenAI, Google (Gemini), OpenRouter, and self-hosted models
    - **Automatic Failover**: Configure `BACKUP_LLM_API_KEY` for redundancy
    - Failover triggers: HTTP 429 (rate limit/quota), 5xx (server errors)
    - Same URL/model for backup, only API key differs
@@ -150,11 +150,10 @@ docker-compose up  # Starts both services
 ### Production (AWS Lightsail + S3/CloudFront)
 
 **Infrastructure**: Production deployment uses Terraform for Infrastructure as Code:
-- **Backend**: AWS Lightsail Container Service (Docker-based, $10-25/month)
-- **Frontend**: S3 static hosting + CloudFront CDN (~$2/month)
+- **Backend**: AWS Lightsail Container Service (Docker-based)
+- **Frontend**: S3 static hosting + CloudFront CDN
 - **DNS**: CloudFlare DNS management
-- **SSL**: AWS ACM certificates (free)
-- **Cost**: ~$12-27/month total
+- **SSL**: AWS ACM certificates
 
 **Manual Deployment**:
 ```bash
