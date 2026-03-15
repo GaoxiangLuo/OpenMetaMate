@@ -28,38 +28,17 @@
     "includeInExtraction": true
   },
   {
-    "id": "1749487944846lofj5",
-    "name": "Participant/Gender/Is Percentage",
-    "dataType": "Boolean",
-    "description": "Whether or not gender statistics are in percentage",
-    "includeInExtraction": true
-  },
-  {
     "id": "1749487978394btwuo",
     "name": "Participant/Gender/Num Male",
     "dataType": "Numeric",
-    "description": "If the study reports the number of male participants, report that number.\n• If the number of male participants is not reported, even if the male percentage is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the number of male participants but not the male percentage, report only the number of male participants. If the study reports both statistics, report both.",
+    "description": "The number of male participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
     "id": "1749488001185u0k8i",
     "name": "Participant/Gender/Num Female",
     "dataType": "Numeric",
-    "description": "If the study reports the number of female participants, report that number.\n• If the number of female participants is not reported, even if the female percentage is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the number of female participants but not the female percentage, report only the number of female participants. If the study reports both statistics, report both.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488048968wmeqq",
-    "name": "Participant/Gender/Percentage Male",
-    "dataType": "Numeric",
-    "description": "If the study reports the percentage of male participants in the sample, report that percentage.\n• If the male percentage is not reported, even if the number of male participants is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the male percentage but not the number of male participants, report only the male percentage. If the study reports both statistics, report both.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488067455kq5ql",
-    "name": "Participant/Gender/Percentage Female",
-    "dataType": "Numeric",
-    "description": "If the study reports the percentage of female participants in the sample, report that percentage.\n• If the female percentage is not reported, even if the number of female participants is reported, report \"not reported\".\n• Only report the statistics that the study explicitly provides. For example, if the study only reports the female percentage but not the number of female participants, report only the female percentage. If the study reports both statistics, report both.",
+    "description": "The number of female participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
@@ -98,66 +77,31 @@
     "includeInExtraction": true
   },
   {
-    "id": "17494882101505t6ji",
-    "name": "Participant/Race/Is Percentage",
-    "dataType": "Boolean",
-    "description": "Whether or not race statistics are in percentage.",
-    "includeInExtraction": true
-  },
-  {
     "id": "17494882326507c19j",
     "name": "Participant/Race/Num White",
     "dataType": "Numeric",
-    "description": "The number of white participants.",
+    "description": "The number of white participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
     "id": "1749488247252dmbo0",
     "name": "Participant/Race/Num Black",
     "dataType": "Numeric",
-    "description": "The number of black participants.",
+    "description": "The number of black participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
     "id": "174948825572730f64",
     "name": "Participant/Race/Num Asian",
     "dataType": "Numeric",
-    "description": "The number of asian participants.",
+    "description": "The number of Asian participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
     "id": "1749488262929av1i8",
     "name": "Participant/Race/Num Hispanic",
     "dataType": "Numeric",
-    "description": "The number of hispanic participants.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488290496f7b0g",
-    "name": "Participant/Race/Percentage White",
-    "dataType": "Numeric",
-    "description": "The percentage of white participants.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488301874wf5z8",
-    "name": "Participant/Race/Percentage Black",
-    "dataType": "Numeric",
-    "description": "The percentage of black participants.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "1749488307439ziwdh",
-    "name": "Participant/Race/Percentage Asian",
-    "dataType": "Numeric",
-    "description": "The percentage of asian participants.",
-    "includeInExtraction": true
-  },
-  {
-    "id": "17494883140855idif",
-    "name": "Participant/Race/Percentage Hispanic",
-    "dataType": "Numeric",
-    "description": "The percentage of hispanic participants.",
+    "description": "The number of Hispanic participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {

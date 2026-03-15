@@ -81,6 +81,21 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
         <ScrollArea ref={scrollAreaRef} className="max-h-[65vh] p-1 pr-4 mt-2">
           <div className="space-y-6 py-4">
             <section>
+              <h3 className="text-lg font-semibold mb-3 text-primary-jhuBlue dark:text-primary-jhuLightBlue">
+                Demo Video
+              </h3>
+              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full rounded-md"
+                  src="https://www.youtube.com/embed/gWeXHbOSuc0"
+                  title="MetaMate Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </section>
+
+            <section>
               <div className="text-center mb-4">
                 <h4 className="text-base font-medium text-slate-700 dark:text-slate-300 mb-2">
                   MetaMate: Large Language Model to the Rescue of Automated Data Extraction for Educational Systematic

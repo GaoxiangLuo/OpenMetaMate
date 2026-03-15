@@ -28,5 +28,8 @@ CI currently runs linting and type-checking; treat failures as blockers. When ad
 ## Commit & Pull Request Guidelines
 Prefer Conventional Commits (`feat:`, `fix:`, `chore:`) in line with the current history. Keep subjects under 72 characters and add body context for riskier changes. Pull requests must include a problem summary, concise change list, linked issue, screenshots or curl traces for UI/API updates, and notes on migrations or env needs. Request reviews from each affected service when a change spans both frontend and backend.
 
+## Plans & Architecture Decision Records
+The `plans/` directory contains architecture decision records for significant features. Before implementing a complex feature, write a plan document (e.g., `plans/010-feature-name.md`) covering the problem, proposed solution, implementation steps, and files to modify. This keeps large changes focused and serves as documentation for future contributors. Review existing plans to understand past design decisions.
+
 ## Security & Configuration Tips
 Keep API keys in `.env` or platform secrets only. Update `.env.example` and Terraform templates when introducing configuration. After dependency bumps, run `pnpm check-deps` and `uv sync` to confirm lockfiles remain consistent, and document any new infrastructure variables in `infra/terraform.tfvars.example` before applying Terraform.

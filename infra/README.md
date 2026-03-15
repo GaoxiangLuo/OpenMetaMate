@@ -93,15 +93,16 @@ cd ../infra/
 ./deploy.sh frontend
 ```
 
-## Cost Breakdown
+## Services Used
 
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| Lightsail Container | small (2GB/1vCPU) | $25 |
-| S3 Storage | ~100MB | <$1 |
-| CloudFront CDN | 100GB transfer | Free tier |
-| Secrets Manager | 1 secret | $0.40 |
-| **Total** | | **~$26.40** |
+| Service | Configuration |
+|---------|--------------|
+| Lightsail Container | small (2GB/1vCPU) |
+| S3 Storage | Static frontend hosting |
+| CloudFront CDN | Global distribution |
+| Secrets Manager | API keys and credentials |
+
+See [AWS pricing](https://aws.amazon.com/pricing/) for current costs.
 
 ## CloudFlare DNS Setup
 
