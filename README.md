@@ -55,7 +55,7 @@ cd OpenMetaMate
 cp .env.example .env
 ```
 
-Open the `.env` file in a text editor and replace `your-api-key-here` with your API key from step 2. Then start the application:
+Open the `.env` file in a text editor and replace `sk-proj-your-api-key-here` with your API key from step 2. Then start the application:
 
 ```bash
 docker-compose up --build

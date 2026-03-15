@@ -43,8 +43,9 @@ cp .env.example .env
 # Option A: Docker (recommended)
 docker-compose up --build
 
-# Option B: Run services separately
+# Option B: Run services separately (each in its own terminal)
 cd backend && uv sync && uv run uvicorn app.main:app --reload --port 8000
+# In a new terminal:
 cd frontend && pnpm install && pnpm dev
 ```
 
@@ -57,7 +58,7 @@ These checks run on every push and pull request. **All must pass before merging.
 | Backend lint | `cd backend && uv run ruff check .` | Catches code issues |
 | Backend format | `cd backend && uv run ruff format --check .` | Enforces consistent formatting |
 | Frontend lint | `cd frontend && pnpm lint` | ESLint checks |
-| Frontend format | `cd frontend && pnpm prettier --check .` | Prettier formatting |
+| Frontend format | `cd frontend && pnpm prettier:check` | Prettier formatting |
 
 Run them all locally before pushing:
 
@@ -70,7 +71,7 @@ uv run ruff format .         # Auto-fix formatting
 # Frontend
 cd frontend
 pnpm lint                    # ESLint
-pnpm prettier --write .      # Auto-fix formatting
+pnpm prettier                # Auto-fix formatting
 ```
 
 ## Coding Style

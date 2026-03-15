@@ -94,14 +94,14 @@
     "id": "174948825572730f64",
     "name": "Participant/Race/Num Asian",
     "dataType": "Numeric",
-    "description": "The number of asian participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
+    "description": "The number of Asian participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
     "id": "1749488262929av1i8",
     "name": "Participant/Race/Num Hispanic",
     "dataType": "Numeric",
-    "description": "The number of hispanic participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
+    "description": "The number of Hispanic participants. If the study only reports percentages, calculate the number from the total sample size. If the number cannot be determined, report \"not reported\".",
     "includeInExtraction": true
   },
   {
