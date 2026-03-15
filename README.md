@@ -6,7 +6,7 @@
 
 **AI-assisted data extraction for educational systematic reviews and meta-analyses.**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](LICENSE)
 [![DOI](https://img.shields.io/badge/DOI-10.1145/3772363.3798755-blue.svg)](https://doi.org/10.1145/3772363.3798755)
 
 </div>
@@ -147,4 +147,4 @@ We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for the 
 
 ## License
 
-MIT License — see [LICENSE](LICENSE)
+CC BY-NC 4.0 — see [LICENSE](LICENSE)
