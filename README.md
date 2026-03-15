@@ -113,8 +113,6 @@ If you use MetaMate in your research, please cite:
 | [Contributing Guide](CONTRIBUTING.md) | How to contribute, code standards, PR process |
 | [Cloud Deployment](docs/deployment.md) | Self-hosting on AWS with Terraform |
 | [Infrastructure](infra/README.md) | Terraform configuration reference |
-| [CLAUDE.md](CLAUDE.md) | AI agent context for Claude Code |
-| [AGENTS.md](AGENTS.md) | AI agent guidelines for coding assistants |
 
 <details>
 <summary><strong>Project Structure</strong></summary>

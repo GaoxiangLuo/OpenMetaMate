@@ -15,17 +15,19 @@ interface AuthorInfoModalProps {
 }
 
 const citations = {
-  bibtex: `@misc{wang_luo_2024,
-    title={MetaMate: Large Language Model to the Rescue of Automated Data Extraction for Educational Systematic Reviews and Meta-analyses},
-    url={osf.io/preprints/edarxiv/wn3cd},
-    DOI={10.35542/osf.io/wn3cd},
-    publisher={EdArXiv},
-    author={Wang, Xue and Luo, Gaoxiang},
-    year={2024},
-    month={May}
+  bibtex: `@inproceedings{10.1145/3772363.3798755,
+  author    = {Wang, Xue and Luo, Gaoxiang},
+  title     = {MetaMate: Understanding How Educational Researchers Experience AI-Assisted Data Extraction for Systematic Reviews},
+  year      = {2026},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/3772363.3798755},
+  doi       = {10.1145/3772363.3798755},
+  booktitle = {Proceedings of the Extended Abstracts of the CHI Conference on Human Factors in Computing Systems},
+  series    = {CHI EA '26}
 }`,
-  apa: `Wang, X., & Luo, G. (2024). MetaMate: Large language model to the rescue of automated data extraction for educational systematic reviews and meta-analyses. https://doi.org/10.35542/osf.io/wn3cd`,
-  mla: `Wang, Xue, and Gaoxiang Luo. "Metamate: Large Language Model to the Rescue of Automated Data Extraction for Educational Systematic Reviews and Meta-analyses." EdArXiv, 2 May 2024. Web.`,
+  apa: `Wang, X., & Luo, G. (2026). MetaMate: Understanding how educational researchers experience AI-assisted data extraction for systematic reviews. In Extended Abstracts of the CHI Conference on Human Factors in Computing Systems (CHI EA '26). ACM. https://doi.org/10.1145/3772363.3798755`,
+  mla: `Wang, Xue, and Gaoxiang Luo. "MetaMate: Understanding How Educational Researchers Experience AI-Assisted Data Extraction for Systematic Reviews." Extended Abstracts of the CHI Conference on Human Factors in Computing Systems, ACM, 2026. https://doi.org/10.1145/3772363.3798755.`,
 }
 
 export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful }: AuthorInfoModalProps) {
@@ -140,6 +142,14 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                     className="flex items-center gap-1 text-sm text-jhu-blue hover:text-jhu-light-blue dark:text-jhu-light-blue dark:hover:text-jhu-blue transition-colors"
                   >
                     Dataset <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <a
+                    href="https://github.com/GaoxiangLuo/OpenMetaMate"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-sm text-jhu-blue hover:text-jhu-light-blue dark:text-jhu-light-blue dark:hover:text-jhu-blue transition-colors"
+                  >
+                    Code <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               </div>
