@@ -6,7 +6,7 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi==0.104.1",
     "uvicorn[standard]==0.24.0",
-    "python-multipart==0.0.6",
+    "python-multipart==0.0.22",
     "openai>=1.109.1",
     "pydantic>=2.7.4",
     "slowapi==0.1.9",
