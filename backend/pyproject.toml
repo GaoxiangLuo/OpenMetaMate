@@ -11,7 +11,7 @@ dependencies = [
     "pydantic>=2.7.4",
     "slowapi==0.1.9",
     "ruff==0.8.0",
-    "pypdf>=5",
+    "pypdf>=6.10.2",
     "langchain-community>=0.2.19",
     "tiktoken>=0.5.1",
     "boto3>=1.40.64",
