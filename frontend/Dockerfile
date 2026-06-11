@@ -6,8 +6,9 @@ WORKDIR /app
 COPY frontend/package*.json ./
 COPY frontend/pnpm-lock.yaml* ./
 
-# Install pnpm and dependencies
-RUN npm install -g pnpm
+# Install pnpm (pinned to the 10.x line matching pnpm-lock.yaml; unpinned this
+# installs pnpm 11, which does not match the v9 lockfile) and dependencies
+RUN npm install -g pnpm@10.34.3
 RUN pnpm install
 
 # Copy application code

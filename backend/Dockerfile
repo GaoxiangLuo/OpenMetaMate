@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+# Pinned tag (digest-identical to 3.11-slim as of 2026-06-11); bump deliberately via PR
+FROM python:3.11.15-slim-trixie
 
 WORKDIR /app
 
