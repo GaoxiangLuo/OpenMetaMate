@@ -14,9 +14,11 @@ on:
           - prod
           - staging
 
-# Never run two production deployments at once; queue instead of cancelling
+# All runs of this workflow (push or manual dispatch, any environment input)
+# deploy to the same Lightsail service and S3 bucket, so every run must be
+# serialized behind a single group; queue instead of cancelling.
 concurrency:
-  group: production-deploy
+  group: aws-deploy
   cancel-in-progress: false
 
 env:
