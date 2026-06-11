@@ -12,8 +12,8 @@ RUN apt-get update && \
 COPY backend/pyproject.toml .
 COPY backend/uv.lock* .
 
-# Compile and install dependencies using uv (system-wide)
-RUN uv pip compile pyproject.toml -o requirements.txt && \
+# Install locked dependencies using uv (system-wide); uv.lock is the source of truth
+RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt && \
     uv pip sync --system requirements.txt
 
 # Copy application code
