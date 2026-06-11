@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Backend Python dependencies (pyproject.toml + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    groups:
+      backend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      backend-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
+
+  # Frontend npm dependencies (package.json + pnpm-lock.yaml)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      frontend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+      frontend-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"

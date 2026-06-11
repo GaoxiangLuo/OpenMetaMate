@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc curl && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir uv
+    pip install --no-cache-dir uv==0.11.21
 
 # Copy project files for dependency installation
 COPY backend/pyproject.toml .
