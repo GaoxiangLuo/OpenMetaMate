@@ -2,14 +2,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files (.pnpmfile.cjs is required: the lockfile records its
+# checksum, and frozen installs fail without it)
 COPY frontend/package*.json ./
 COPY frontend/pnpm-lock.yaml* ./
+COPY frontend/.pnpmfile.cjs ./
 
-# Install pnpm (pinned to the 10.x line matching pnpm-lock.yaml; unpinned this
-# installs pnpm 11, which does not match the v9 lockfile) and dependencies
+# Install pnpm (pinned for reproducible builds; upgrade deliberately via PR)
+# and dependencies exactly as locked
 RUN npm install -g pnpm@10.34.3
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Copy application code
 COPY frontend/ .

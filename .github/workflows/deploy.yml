@@ -38,7 +38,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          # Pinned to match backend/Dockerfile's base image patch version
+          python-version: '3.11.15'
       
       - name: Install UV
         run: |
