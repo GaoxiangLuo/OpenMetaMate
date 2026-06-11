@@ -199,7 +199,8 @@ async def test_mineru_direct():
                     content = f.read()
 
                 print(f"Size: {len(content):,} characters")
-                print(f"Lines: {content.count('\n') + 1:,}")
+                line_count = content.count("\n") + 1
+                print(f"Lines: {line_count:,}")
                 print("\nFirst 1000 characters:")
                 print("~" * 80)
                 print(content[:1000])
