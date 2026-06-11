@@ -60,3 +60,16 @@ updates:
       actions:
         patterns:
           - "*"
+
+  # Docker base images: keeps the digest pins in the Dockerfiles current
+  # (security rebuilds of the base images arrive as PRs)
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend"
+      - "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker:
+        patterns:
+          - "*"

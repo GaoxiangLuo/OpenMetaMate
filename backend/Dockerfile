@@ -1,5 +1,6 @@
-# Pinned tag (digest-identical to 3.11-slim as of 2026-06-11); bump deliberately via PR
-FROM python:3.11.15-slim-trixie
+# Digest-pinned for fully reproducible builds; Dependabot (docker ecosystem)
+# opens PRs to bump this when the upstream image updates
+FROM python:3.11.15-slim-trixie@sha256:f9fa7f851e38bfb19c9de3afbc4b86ae7176ea7aaf94535c31df5458d5849457
 
 WORKDIR /app
 
