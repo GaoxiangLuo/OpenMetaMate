@@ -7,16 +7,16 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.18",
-    "openai>=1.109.1",
-    "pydantic>=2.7.4",
+    "openai>=2.41.1",
+    "pydantic>=2.13.4",
     "slowapi==0.1.9",
-    "ruff==0.8.0",
+    "ruff==0.15.17",
     "pypdf>=5",
-    "langchain-community>=0.2.19",
-    "tiktoken>=0.5.1",
-    "boto3>=1.40.64",
+    "langchain-community>=0.4.2",
+    "tiktoken>=0.13.0",
+    "boto3>=1.43.28",
     "httpx>=0.28.1",
-    "orjson>=3.11",
+    "orjson>=3.11.9",
 ]
 
 [build-system]
@@ -47,9 +47,9 @@ dev = [
     "pytest>=9.0.2",
 ]
 eval = [
-    "pandas>=2.0.0",
+    "pandas>=3.0.3",
     "openpyxl>=3.1.0",
     "rouge-score>=0.1.2",
-    "tqdm>=4.60.0",
+    "tqdm>=4.68.2",
     "google-genai>=1.0.0",
 ]
