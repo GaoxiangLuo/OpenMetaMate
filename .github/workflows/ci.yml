@@ -17,12 +17,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          # Pinned to match backend/Dockerfile's base image patch version
+          python-version: '3.11.15'
       
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "latest"
+          # Pinned to match backend/Dockerfile; upgrade deliberately via PR
+          version: "0.11.21"
       
       - name: Install dependencies
         working-directory: ./backend
@@ -39,6 +41,15 @@ jobs:
         run: |
           uv run ruff format --check .
 
+      - name: Import smoke test
+        working-directory: ./backend
+        env:
+          LLM_API_KEY: ci-dummy-key
+          LLM_API_URL: https://api.openai.com/v1
+          LLM_MODEL: ci-dummy-model
+        run: |
+          uv run python -c "import app.main"
+
   frontend-lint:
     name: Frontend Lint & Format Check
     runs-on: ubuntu-latest
@@ -49,12 +60,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 10
-      
+          version: "10.34.3"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
       
@@ -68,7 +79,9 @@ jobs:
       
       - name: Check formatting with Prettier
         working-directory: ./frontend
-        run: pnpm prettier --check .
+        # Must be the strict check script: 'pnpm prettier --check .' expands the
+        # 'prettier' script (prettier --write .) and auto-fixes instead of failing
+        run: pnpm prettier:check
 
       - name: Type check
         working-directory: ./frontend

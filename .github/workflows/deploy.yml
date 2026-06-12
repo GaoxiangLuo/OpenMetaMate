@@ -38,12 +38,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          # Pinned to match backend/Dockerfile's base image patch version
+          python-version: '3.11.15'
       
-      - name: Install UV
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          # Pinned to match backend/Dockerfile; upgrade deliberately via PR
+          version: "0.11.21"
       
       - name: Install dependencies
         working-directory: backend
@@ -70,12 +72,12 @@ jobs:
       
       - uses: pnpm/action-setup@v2
         with:
-          version: 10
+          version: "10.34.3"
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
       
@@ -261,12 +263,12 @@ jobs:
       
       - uses: pnpm/action-setup@v2
         with:
-          version: 10
+          version: "10.34.3"
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
       

@@ -273,8 +273,7 @@ async def extract_data(
         # Count items to be extracted
         items_to_extract = sum(1 for item in parsed_scheme if item.include_in_extraction)
         logger.info(
-            f"📊 Coding scheme parsed: {len(parsed_scheme)} items, "
-            f"{items_to_extract} to extract"
+            f"📊 Coding scheme parsed: {len(parsed_scheme)} items, {items_to_extract} to extract"
         )
 
         if items_to_extract == 0:

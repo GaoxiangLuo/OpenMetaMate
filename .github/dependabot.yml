@@ -10,10 +10,22 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+      # Safe weekly stream: minors and patches only
       backend-dependencies:
         applies-to: version-updates
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Majors land in their own PR: a visible migration queue that never
+      # blocks or reddens the minor/patch stream
+      backend-majors:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
   # Frontend npm dependencies (package.json + pnpm-lock.yaml)
   - package-ecosystem: "npm"
@@ -27,5 +39,37 @@ updates:
           - "*"
       frontend-dependencies:
         applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      frontend-majors:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  # GitHub Actions: action-tag updates arrive as PRs instead of silent drift
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Docker base images: keeps the digest pins in the Dockerfiles current
+  # (security rebuilds of the base images arrive as PRs)
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend"
+      - "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker:
         patterns:
           - "*"
