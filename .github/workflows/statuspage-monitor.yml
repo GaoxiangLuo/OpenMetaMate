@@ -6,6 +6,9 @@ on:
     - cron: '0 9 * * *'
   workflow_dispatch:  # Allow manual trigger
 
+permissions:
+  actions: write  # for the keep-alive step
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
@@ -17,7 +20,7 @@ jobs:
           echo "Checking backend health..."
 
           # Try to fetch health endpoint
-          if curl -f -s -m 10 https://api.metamate.online/health > /tmp/health.json; then
+          if curl -f -s -m 60 https://api.metamate.online/health/llm > /tmp/health.json; then
             echo "status=healthy" >> $GITHUB_OUTPUT
             echo "✅ Backend is healthy"
             cat /tmp/health.json
@@ -50,3 +53,10 @@ jobs:
             -s | python3 -m json.tool
 
           echo "✅ StatusPage updated successfully"
+
+      - name: Keep scheduled workflow alive
+        # GitHub disables scheduled workflows after 60 days of repo inactivity; re-enabling resets the timer
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/statuspage-monitor.yml/enable"
