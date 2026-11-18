@@ -1,12 +1,17 @@
 import logging
+import time
 from datetime import datetime
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
+from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_llm_ok_until = 0.0  # cache successful LLM checks so this public endpoint can't burn credits
 
 
 @router.get("/health")
@@ -46,3 +51,18 @@ async def health_check():
 
     logger.info(f"🏥 Health status: {health_status['status']}")
     return health_status
+
+
+@router.get("/health/llm")
+async def llm_health_check():
+    """End-to-end check: returns 503 if the LLM can't serve an extraction (details only logged)."""
+    global _llm_ok_until
+    if time.monotonic() > _llm_ok_until:
+        try:
+            ping = [{"name": "ok", "data_type": "Text", "include_in_extraction": True}]
+            await LLMService().extract_with_schema("ping", ping)
+            _llm_ok_until = time.monotonic() + 300
+        except Exception as e:
+            logger.error(f"❌ LLM health check failed: {e}")
+            return JSONResponse(status_code=503, content={"status": "unavailable"})
+    return {"status": "operational"}

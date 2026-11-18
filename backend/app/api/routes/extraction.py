@@ -785,7 +785,8 @@ async def extract_data_stream(
             logger.error(
                 f"💥 [STREAM] Extraction error for {pdf_file.filename}: {str(e)}", exc_info=True
             )
-            yield json.dumps({"type": "error", "message": str(e)}) + "\n"
+            generic = "Unable to process the document. Please try again or contact support."
+            yield json.dumps({"type": "error", "message": generic}) + "\n"
 
     return StreamingResponse(
         event_generator(),

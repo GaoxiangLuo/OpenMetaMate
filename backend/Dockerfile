@@ -14,9 +14,10 @@ RUN apt-get update && \
 COPY backend/pyproject.toml .
 COPY backend/uv.lock* .
 
-# Install locked dependencies using uv (system-wide); uv.lock is the source of truth
-RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt && \
-    uv pip sync --system requirements.txt
+# Install locked dependencies system-wide straight from uv.lock's pinned file URLs.
+# (uv pip sync re-resolved against the PyPI index, which failed deploys when the
+# CDN served GitHub runners a stale index.)
+RUN UV_PROJECT_ENVIRONMENT=/usr/local uv sync --frozen --no-dev --no-install-project
 
 # Copy application code
 COPY backend/app/ ./app/
