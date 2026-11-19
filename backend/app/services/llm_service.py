@@ -72,6 +72,13 @@ After each extraction, validate that the output strictly adheres to the required
 3. For boolean multi-label fields (e.g., grade 3 and grade 4), treat each option as separately true or false.
 """
 
+_CHECKLIST_INSTRUCTION = """Begin with a concise checklist (3-7 bullets) of what you will do; keep items conceptual, not implementation-level.
+
+"""
+# GPT-6 follows the checklist instruction literally and writes the bullets ahead of the
+# JSON, which breaks structured output parsing, so its prompt drops that instruction.
+GPT_6_SYSTEM_PROMPT = GPT_5_SYSTEM_PROMPT.replace(_CHECKLIST_INSTRUCTION, "")
+
 
 class LLMService:
     """LLM integration service with structured output"""
@@ -194,9 +201,12 @@ class LLMService:
             logger.error("❌ Failed to create Pydantic model from coding scheme")
             raise ExtractionError("Failed to create extraction model from coding scheme")
 
-        system_prompt = (
-            GPT_5_SYSTEM_PROMPT if settings.use_responses_api(self.model) else SYSTEM_PROMPT
-        )
+        if self.model.lower().startswith("gpt-6"):
+            system_prompt = GPT_6_SYSTEM_PROMPT
+        elif settings.use_responses_api(self.model):
+            system_prompt = GPT_5_SYSTEM_PROMPT
+        else:
+            system_prompt = SYSTEM_PROMPT
 
         messages = [
             {"role": "system", "content": system_prompt},

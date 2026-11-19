@@ -66,8 +66,7 @@ class Settings:
         if not model:
             return self.TEMPERATURE
 
-        normalized_model = model.lower()
-        if normalized_model.startswith("gpt-5"):
+        if self.is_reasoning_gpt(model):
             if self.TEMPERATURE not in (None, 1.0):
                 logger.warning(
                     "⚠️ Ignoring temperature %s for model %s; only the default is supported",
@@ -78,10 +77,16 @@ class Settings:
 
         return self.TEMPERATURE
 
+    @staticmethod
+    def is_reasoning_gpt(model: str) -> bool:
+        """Return True for the GPT-5 and GPT-6 families."""
+
+        return bool(model and model.lower().startswith(("gpt-5", "gpt-6")))
+
     def use_responses_api(self, model: str) -> bool:
         """Return True when the model should be called via the Responses API."""
 
-        return bool(model and model.lower().startswith("gpt-5"))
+        return self.is_reasoning_gpt(model)
 
     def validate(self):
         """Validate required settings"""
@@ -167,7 +172,7 @@ class Settings:
 
         if normalized_model.startswith("gpt-4.1"):
             chunk_size = 960_000
-        elif normalized_model.startswith("gpt-5.4"):
+        elif normalized_model.startswith(("gpt-5.4", "gpt-6")):
             chunk_size = 960_000
         elif normalized_model.startswith("gpt-5"):
             chunk_size = 360_000

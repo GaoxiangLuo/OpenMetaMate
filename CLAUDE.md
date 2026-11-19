@@ -41,7 +41,7 @@ docker-compose up
 # Environment setup required: Create .env file with:
 # LLM_API_KEY=your-api-key
 # LLM_API_URL=https://api.openai.com/v1
-# LLM_MODEL=gpt-5.4-2026-03-05
+# LLM_MODEL=gpt-6-luna
 # BACKUP_LLM_API_KEY=your-backup-api-key  # Optional: for automatic failover
 # CORS_ORIGINS=http://localhost:3000
 # MAX_FILE_SIZE_MB=10
