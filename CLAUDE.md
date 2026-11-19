@@ -70,7 +70,7 @@ docker-compose up
    - Implementation: `backend/app/services/pdf_processor.py`, `backend/app/services/mineru_processor.py`
    - **MinerU Integration** (optional): Advanced cloud-based PDF extraction
      - Features: OCR for scanned PDFs, formula recognition, table extraction
-     - Free tier: 2000 pages/day at highest priority
+     - Free tier: 1000 pages/day at highest priority
      - Requires: `MINERU_API_KEY` and `AWS_S3_TEMP_BUCKET`
      - Automatic fallback to PyPDF on failure (network issues, quota exceeded, etc.)
      - S3 temporary storage: `backend/app/services/s3_temp_storage.py`

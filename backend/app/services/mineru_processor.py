@@ -25,7 +25,7 @@ MINERU_API_URL = "https://mineru.net/api/v4/extract/task"
 MINERU_POLL_INTERVAL = 5  # seconds
 MINERU_MAX_WAIT_TIME = 600  # 10 minutes
 MINERU_MAX_FILE_SIZE_MB = 200  # MinerU limit
-MINERU_MAX_PAGES = 600  # MinerU limit
+MINERU_MAX_PAGES = 200  # MinerU limit
 
 
 class MinerUPDFProcessor(BasePDFProcessor):
@@ -375,6 +375,28 @@ class MinerUPDFProcessor(BasePDFProcessor):
                             parts.append(f"[FIGURE FOOTNOTE] {footnote}")
 
                         text = " ".join(parts) if parts else None
+
+                    elif block_type in ["header", "footer", "page_footnote"]:
+                        # Running headers/footers often carry journal, title and author
+                        # details; footnotes carry affiliations and study notes
+                        label = {"page_footnote": "FOOTNOTE"}.get(block_type, block_type.upper())
+                        body = block.get("text", "").strip()
+                        if body:
+                            text = f"[{label}] {body}"
+
+                    elif block_type == "chart":
+                        # Include chart with caption, any recognised content, and footnote
+                        caption = self._normalize_caption(block.get("chart_caption"))
+                        body = (block.get("content") or "").strip()
+                        footnote = self._normalize_caption(block.get("chart_footnote"))
+
+                        parts = [f"[CHART] {caption}" if caption else "[CHART]"]
+                        if body:
+                            parts.append(body)
+                        if footnote:
+                            parts.append(f"[CHART FOOTNOTE] {footnote}")
+
+                        text = "\n".join(parts)
 
                     elif block_type == "equation":
                         # Include LaTeX equation

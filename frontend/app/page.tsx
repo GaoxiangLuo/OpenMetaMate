@@ -314,7 +314,7 @@ export default function MetaMateChatPage() {
   const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(true)
   const [isAuthorInfoModalOpen, setIsAuthorInfoModalOpen] = useState(false)
   const [scrollToMindful, setScrollToMindful] = useState(false)
-  const [enhancedExtraction, setEnhancedExtraction] = useState(false)
+  const [enhancedExtraction, setEnhancedExtraction] = useState(true)
   const [isClient, setIsClient] = useState(false)
   const [pdfSources, setPdfSources] = useState<Record<string, string>>({})
   const pdfSourcesRef = useRef<Record<string, string>>({})
