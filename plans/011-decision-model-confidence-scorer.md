@@ -77,6 +77,7 @@ Call count: normally two per paper, one extraction and one decision. Exceptions 
 | `predicate` for all three data types | One comparable score for Boolean, Numeric and Text fields |
 | Boolean fields asked directly | "Is the answer False correct?" is a double negative; asking the field itself gave fewer false alarms |
 | Extraction reasoning withheld from the scorer | It made the scorer agree with wrong values |
+| Indicator keeps showing the percentage with the colour band | After accounting for label errors the top band is reliable; a low score is a prompt to check the value |
 | One call per paper | Up to 400 questions per request; the paper is billed once, not per question |
 | Scorer failure never fails the request | Confidence is an aid; the extracted values are the product |
 | No fallback to self-reported confidence | One indicator should have one meaning; deployments on non-OpenAI providers show no confidence |
@@ -148,7 +149,6 @@ Offline run on human-coded papers: 7,655 extracted values (79% correct by the hu
 
 ## Open Items
 
-- Whether to show the percentage or colour bands only; a low score means "check this", not a literal probability.
-- Calculated numeric fields get low scores even when right. Options: hide low scores on them, or verify the inputs with the decision model and the arithmetic in code.
+- Calculated numeric fields (total hours, percentages from counts) get low scores even when right. Not addressed here: a single forward pass cannot be relied on for arithmetic. Left for a future agentic version with math tools.
 - Measure AUROC on corrected labels with a random sample across the whole score range.
 - Not checked in a browser: the new progress message, the colour bands and the 100% on manual edits.
