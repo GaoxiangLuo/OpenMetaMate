@@ -16,6 +16,11 @@ class Settings:
     # Uses same LLM_API_URL and LLM_MODEL, only key differs
     BACKUP_LLM_API_KEY: Optional[str] = os.getenv("BACKUP_LLM_API_KEY", None)
 
+    # Claude fallback (optional): tried last, only after every LLM_API_URL key has failed.
+    # Runs with thinking disabled, which this model accepts.
+    CLAUDE_API_KEY: Optional[str] = os.getenv("CLAUDE_API_KEY", None)
+    CLAUDE_MODEL: str = "claude-haiku-5-5"
+
     _temperature_env = os.getenv("LLM_TEMPERATURE")
     if _temperature_env in (None, ""):
         TEMPERATURE: Optional[float] = 0.0
@@ -156,6 +161,8 @@ class Settings:
         logger.info("🔧 Settings summary:")
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
         logger.info(f"  🔄 Backup API: {'Enabled' if self.BACKUP_LLM_API_KEY else 'Disabled'}")
+        claude = f"Enabled ({self.CLAUDE_MODEL})" if self.CLAUDE_API_KEY else "Disabled"
+        logger.info(f"  🔄 Claude fallback: {claude}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         if self.MINERU_API_KEY and self.AWS_S3_TEMP_BUCKET:
             logger.info("  🚀 MinerU: Enabled (with PyPDF fallback)")

@@ -1,7 +1,12 @@
+import asyncio
 import logging
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Tuple, Union
 
-from openai import APIError, APITimeoutError, AsyncOpenAI, RateLimitError
+import anthropic
+import openai
+from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.exceptions import ExtractionError
@@ -72,6 +77,7 @@ After each extraction, validate that the output strictly adheres to the required
 3. For boolean multi-label fields (e.g., grade 3 and grade 4), treat each option as separately true or false.
 """
 
+
 _CHECKLIST_INSTRUCTION = """Begin with a concise checklist (3-7 bullets) of what you will do; keep items conceptual, not implementation-level.
 
 """
@@ -79,53 +85,123 @@ _CHECKLIST_INSTRUCTION = """Begin with a concise checklist (3-7 bullets) of what
 # JSON, which breaks structured output parsing, so its prompt drops that instruction.
 GPT_6_SYSTEM_PROMPT = GPT_5_SYSTEM_PROMPT.replace(_CHECKLIST_INSTRUCTION, "")
 
+CLAUDE_MAX_TOKENS = 64_000
+# Claude's structured outputs refuse to compile schemas beyond roughly 30 coding scheme
+# fields ("Schema is too complex for compilation"), so larger schemes are split across
+# several requests whose results are merged back into one object.
+CLAUDE_FIELDS_PER_REQUEST = 20
+
+
+def _claude_output_schema(pydantic_model) -> Dict[str, Any]:
+    """Build the structured output JSON schema sent to Claude for an extraction model.
+
+    Every coding scheme field is Optional in the Pydantic model, which makes each one a
+    nullable union in JSON schema, and Claude caps a request at 16 union parameters. The
+    groups are rewritten to require every field as a plain object; "Not Found" is still
+    expressed inside the field object itself.
+    """
+    schema = pydantic_model.model_json_schema()
+    fixed = {"LLMExtractionField", "LLMCitation"}
+    groups = [schema] + [d for name, d in schema.get("$defs", {}).items() if name not in fixed]
+
+    for group in groups:
+        properties = group.get("properties", {})
+        for name, prop in properties.items():
+            non_null = [o for o in prop.get("anyOf", []) if o.get("type") != "null"]
+            if len(non_null) == 1:
+                properties[name] = {
+                    **non_null[0],
+                    **{k: v for k, v in prop.items() if k == "description"},
+                }
+        group["required"] = list(properties)
+
+    return anthropic.transform_schema(schema)
+
+
+def _deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge nested group dictionaries from one partial extraction into another."""
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_merge(target[key], value)
+        else:
+            target[key] = value
+    return target
+
+
+def _should_failover(error: Exception) -> bool:
+    """Return True when the next provider in the chain has a chance of succeeding."""
+    if isinstance(error, (openai.APITimeoutError, anthropic.APITimeoutError)):
+        return False  # each attempt already waited the full timeout
+    if isinstance(error, (openai.APIConnectionError, anthropic.APIConnectionError)):
+        return True
+    if isinstance(error, (openai.APIStatusError, anthropic.APIStatusError)):
+        # Key-specific failures (bad/blocked key, rate limit, quota) and server errors
+        return error.status_code in (401, 403, 429) or error.status_code >= 500
+    return False
+
 
 class LLMService:
-    """LLM integration service with structured output"""
+    """LLM integration service with structured output and provider failover"""
 
     def __init__(self):
-        # Initialize async LLM client with only the API key
         if not settings.LLM_API_KEY:
             logger.error("🔑❌ LLM API key not configured")
             raise ValueError("LLM API key is required")
 
-        self.client = AsyncOpenAI(
-            base_url=settings.LLM_API_URL,
-            api_key=settings.LLM_API_KEY,
-            timeout=300.0,  # 5 minute timeout for LLM API calls (complex PDFs need time)
-            max_retries=2,  # Retry failed requests twice for transient errors
-        )
         self.model = settings.LLM_MODEL
+        # Ordered failover chain: every LLM_API_URL key first, then Claude
+        self.providers: List[Tuple[str, Union[AsyncOpenAI, AsyncAnthropic]]] = []
 
-        # Initialize backup client if backup API key is configured
-        self.backup_client = None
-        if settings.BACKUP_LLM_API_KEY:
-            self.backup_client = AsyncOpenAI(
+        openai_keys = (
+            ("primary API", settings.LLM_API_KEY),
+            ("backup API", settings.BACKUP_LLM_API_KEY),
+        )
+        for name, api_key in openai_keys:
+            if not api_key:
+                continue
+            client = AsyncOpenAI(
                 base_url=settings.LLM_API_URL,  # Same URL and model, different key
-                api_key=settings.BACKUP_LLM_API_KEY,
-                timeout=300.0,
-                max_retries=2,
+                api_key=api_key,
+                timeout=300.0,  # 5 minute timeout for LLM API calls (complex PDFs need time)
+                max_retries=2,  # Retry failed requests twice for transient errors
             )
-            logger.info(
-                f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
+            self.providers.append((name, client))
+
+        if settings.CLAUDE_API_KEY:
+            claude_client = AsyncAnthropic(
+                api_key=settings.CLAUDE_API_KEY, timeout=300.0, max_retries=2
             )
-            logger.info("🔄 Backup API enabled for automatic failover")
+            name = f"Claude API ({settings.CLAUDE_MODEL})"
+            self.providers.append((name, claude_client))
+
+        logger.info(
+            f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
+        )
+        if len(self.providers) > 1:
+            chain = " → ".join(name for name, _ in self.providers)
+            logger.info(f"🔄 Automatic failover enabled: {chain}")
         else:
-            logger.info(
-                f"🤖 LLM Service initialized with model: {self.model} (timeout: 300s, retries: 2)"
-            )
             logger.info("⚠️ Backup API not configured - no automatic failover")
 
     async def _call_llm(
-        self, client: AsyncOpenAI, pydantic_model, messages, provider_name: str
+        self, client: AsyncOpenAI, provider_name: str, pydantic_model, text: str
     ) -> Dict[str, Any]:
-        """Helper method to call LLM API with given client"""
-        import time
-
+        """Call the OpenAI-compatible API with the given client"""
         start_time = time.time()
 
-        temperature = settings.resolve_temperature(self.model)
         use_responses_api = settings.use_responses_api(self.model)
+        if self.model.lower().startswith("gpt-6"):
+            system_prompt = GPT_6_SYSTEM_PROMPT
+        elif use_responses_api:
+            system_prompt = GPT_5_SYSTEM_PROMPT
+        else:
+            system_prompt = SYSTEM_PROMPT
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ]
+
+        temperature = settings.resolve_temperature(self.model)
         parsed_message = None
 
         responses_resource = getattr(client, "responses", None)
@@ -183,6 +259,74 @@ class LLMService:
         logger.warning(f"⚠️ No parsed result from LLM ({provider_name})")
         return {}
 
+    async def _call_claude(
+        self,
+        client: AsyncAnthropic,
+        provider_name: str,
+        pydantic_model,
+        coding_scheme: List[Dict[str, Any]],
+        text: str,
+    ) -> Dict[str, Any]:
+        """Call the Claude API (native Messages API with structured output)"""
+        start_time = time.time()
+
+        included = [
+            item
+            for item in coding_scheme
+            if item.get("include_in_extraction", item.get("includeInExtraction", False))
+        ]
+        size = CLAUDE_FIELDS_PER_REQUEST
+        batches = [included[i : i + size] for i in range(0, len(included), size)]
+        parts = await asyncio.gather(
+            *(self._claude_request(client, batch, text) for batch in batches)
+        )
+
+        merged: Dict[str, Any] = {}
+        for part in parts:
+            _deep_merge(merged, part)
+        if not merged:
+            logger.warning(f"⚠️ No parsed result from LLM ({provider_name})")
+            return {}
+
+        result = pydantic_model.model_validate(merged).model_dump(mode="python")
+        duration = time.time() - start_time
+        logger.info(
+            f"✅ [STAGE 4/6] LLM extraction completed ({provider_name}, "
+            f"{len(batches)} request(s)) in {duration:.1f}s"
+        )
+        return result
+
+    async def _claude_request(
+        self, client: AsyncAnthropic, batch: List[Dict[str, Any]], text: str
+    ) -> Dict[str, Any]:
+        """Extract one batch of coding scheme fields with Claude"""
+        batch_model = coding_scheme_items_to_pydantic_model(batch)
+        if batch_model is None:
+            raise ExtractionError("Failed to create extraction model from coding scheme")
+
+        # Streamed so long extractions are not cut off by an idle HTTP connection
+        async with client.messages.stream(
+            model=settings.CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": text}],
+            thinking={"type": "disabled"},
+            output_config={
+                "format": {"type": "json_schema", "schema": _claude_output_schema(batch_model)}
+            },
+        ) as stream:
+            message = await stream.get_final_message()
+
+        if message.stop_reason == "refusal":
+            raise ExtractionError("Claude declined to process this document")
+        if message.stop_reason == "max_tokens":
+            raise ExtractionError("Claude response was cut off before the extraction finished")
+
+        output_text = "".join(b.text for b in message.content if b.type == "text")
+        if not output_text:
+            return {}
+        return batch_model.model_validate_json(output_text).model_dump(mode="python")
+
     async def extract_with_schema(
         self, text: str, coding_scheme: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -201,73 +345,40 @@ class LLMService:
             logger.error("❌ Failed to create Pydantic model from coding scheme")
             raise ExtractionError("Failed to create extraction model from coding scheme")
 
-        if self.model.lower().startswith("gpt-6"):
-            system_prompt = GPT_6_SYSTEM_PROMPT
-        elif settings.use_responses_api(self.model):
-            system_prompt = GPT_5_SYSTEM_PROMPT
-        else:
-            system_prompt = SYSTEM_PROMPT
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text},
-        ]
-
-        # Try primary API first
-        try:
-            logger.info("🤖 [STAGE 4/6] Starting LLM extraction (primary API)...")
-            return await self._call_llm(self.client, pydantic_model, messages, "primary API")
-
-        except RateLimitError as e:
-            # 429 error - try backup API if available
-            logger.error("❌ [STAGE 4/6] Primary LLM API failed: Rate limit error (429)")
-
-            if self.backup_client:
-                logger.info("🔄 [STAGE 4/6] Retrying with backup API...")
-                try:
-                    return await self._call_llm(
-                        self.backup_client, pydantic_model, messages, "backup API"
+        failures: List[str] = []
+        for index, (name, client) in enumerate(self.providers):
+            try:
+                logger.info(f"🤖 [STAGE 4/6] Starting LLM extraction ({name})...")
+                if isinstance(client, AsyncAnthropic):
+                    return await self._call_claude(
+                        client, name, pydantic_model, coding_scheme, text
                     )
-                except Exception as backup_error:
-                    logger.error(f"❌ [STAGE 4/6] Backup API also failed: {backup_error}")
-                    raise ExtractionError(
-                        f"Both primary and backup APIs failed. Primary: Rate limit. Backup: {backup_error}"
-                    )
-            else:
-                logger.error("❌ [STAGE 4/6] No backup API configured - cannot retry")
-                raise ExtractionError(f"API rate limit exceeded: {e}")
+                return await self._call_llm(client, name, pydantic_model, text)
 
-        except APITimeoutError as e:
-            logger.error(f"❌ [STAGE 4/6] Primary API timeout: {e}")
-            raise ExtractionError(f"API request timed out: {e}")
+            except ExtractionError:
+                raise
 
-        except APIError as e:
-            # Server errors (5xx) - try backup if available
-            error_message = str(e)
-            if "50" in error_message:  # 500-599 server errors
-                logger.error(f"❌ [STAGE 4/6] Primary API server error: {e}")
+            except (openai.APITimeoutError, anthropic.APITimeoutError) as e:
+                logger.error(f"❌ [STAGE 4/6] {name} timeout: {e}")
+                raise ExtractionError(f"API request timed out: {e}")
 
-                if self.backup_client:
-                    logger.info("🔄 [STAGE 4/6] Retrying with backup API...")
-                    try:
-                        return await self._call_llm(
-                            self.backup_client, pydantic_model, messages, "backup API"
-                        )
-                    except Exception as backup_error:
-                        logger.error(f"❌ [STAGE 4/6] Backup API also failed: {backup_error}")
-                        raise ExtractionError(
-                            f"Both primary and backup APIs failed. Primary: {e}. Backup: {backup_error}"
-                        )
+            except Exception as e:
+                is_last = index == len(self.providers) - 1
+                if isinstance(e, (openai.RateLimitError, anthropic.RateLimitError)):
+                    summary = "API rate limit exceeded (429)"
                 else:
-                    logger.error("❌ [STAGE 4/6] No backup API configured - cannot retry")
-                    raise ExtractionError(f"LLM API error: {e}")
-            else:
-                # Client error (4xx) - don't retry with backup
-                logger.error(f"❌ [STAGE 4/6] Primary API client error: {e}")
-                raise ExtractionError(f"LLM API error: {e}")
+                    summary = f"LLM API error: {e}"
+                logger.error(f"❌ [STAGE 4/6] {name} failed: {summary}", exc_info=is_last)
+                failures.append(f"{name}: {summary}")
 
-        except Exception as e:
-            logger.error(
-                f"❌ [STAGE 4/6] Unexpected error during LLM extraction: {e}", exc_info=True
-            )
-            raise ExtractionError(f"Unexpected extraction error: {e}")
+                if not _should_failover(e):
+                    raise ExtractionError(summary)
+                if is_last:
+                    if len(failures) == 1:
+                        logger.error("❌ [STAGE 4/6] No backup API configured - cannot retry")
+                        raise ExtractionError(summary)
+                    raise ExtractionError(f"All LLM APIs failed. {'; '.join(failures)}")
+
+                logger.info(f"🔄 [STAGE 4/6] Retrying with {self.providers[index + 1][0]}...")
+
+        raise ExtractionError("No LLM API configured")
