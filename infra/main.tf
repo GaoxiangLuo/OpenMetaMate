@@ -419,6 +419,30 @@ resource "aws_s3_bucket_public_access_block" "pdf_temp" {
   restrict_public_buckets = true
 }
 
+# IAM user the backend container uses to reach the temp bucket. Lightsail containers
+# have no task role, so its access key is passed to the container by deploy.yml
+# (GitHub secrets S3_TEMP_AWS_ACCESS_KEY_ID / S3_TEMP_AWS_SECRET_ACCESS_KEY).
+# The key itself is created outside Terraform so the secret never enters the state.
+resource "aws_iam_user" "pdf_temp" {
+  name = "${var.app_name}-pdf-temp"
+}
+
+resource "aws_iam_user_policy" "pdf_temp" {
+  name = "${var.app_name}-pdf-temp-access"
+  user = aws_iam_user.pdf_temp.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+        Resource = "${aws_s3_bucket.pdf_temp.arn}/temp/*"
+      }
+    ]
+  })
+}
+
 # Lifecycle policy: auto-delete files after 1 day
 resource "aws_s3_bucket_lifecycle_configuration" "pdf_temp" {
   bucket = aws_s3_bucket.pdf_temp.id
