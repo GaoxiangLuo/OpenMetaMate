@@ -226,7 +226,7 @@ async def extract_data(
     request: Request,
     pdf_file: UploadFile = File(...),
     coding_scheme: str = Form(...),
-    enhanced_extraction: bool = Form(False),
+    enhanced_extraction: bool = Form(True),
 ):
     """Extract data from PDF using provided coding scheme"""
 
@@ -442,7 +442,7 @@ async def extract_data_stream(
     request: Request,
     pdf_file: UploadFile = File(...),
     coding_scheme: str = Form(...),
-    enhanced_extraction: bool = Form(False),
+    enhanced_extraction: bool = Form(True),
 ):
     """
     Extract data from PDF using streaming responses to bypass Lightsail 60s timeout.

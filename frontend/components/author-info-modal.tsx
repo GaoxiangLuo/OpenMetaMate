@@ -184,9 +184,9 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2025]</span>
                   <span>
-                    <strong>Enhanced extraction for tables and figures</strong> is now available! Enable it via the
-                    Settings (⚙️) to get better extraction of complex tables, mathematical equations, and infographic
-                    figures. Plus, it works for scanned PDFs as well.
+                    <strong>Enhanced extraction for tables and figures</strong> is now on by default, for better
+                    extraction of complex tables, mathematical equations, and infographic figures. It works for scanned
+                    PDFs as well. Switch off the Enhanced toggle next to the Extract button for faster runs.
                   </span>
                 </div>
                 <div className="flex gap-2">

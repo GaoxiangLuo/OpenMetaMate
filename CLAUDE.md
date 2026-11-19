@@ -41,8 +41,9 @@ docker-compose up
 # Environment setup required: Create .env file with:
 # LLM_API_KEY=your-api-key
 # LLM_API_URL=https://api.openai.com/v1
-# LLM_MODEL=gpt-5.4-2026-03-05
+# LLM_MODEL=gpt-6-luna
 # BACKUP_LLM_API_KEY=your-backup-api-key  # Optional: for automatic failover
+# CLAUDE_API_KEY=your-claude-api-key  # Optional: Claude as the last failover step
 # CORS_ORIGINS=http://localhost:3000
 # MAX_FILE_SIZE_MB=10
 # PDF_PROCESSOR=pypdf
@@ -69,7 +70,7 @@ docker-compose up
    - Implementation: `backend/app/services/pdf_processor.py`, `backend/app/services/mineru_processor.py`
    - **MinerU Integration** (optional): Advanced cloud-based PDF extraction
      - Features: OCR for scanned PDFs, formula recognition, table extraction
-     - Free tier: 2000 pages/day at highest priority
+     - Free tier: 1000 pages/day at highest priority
      - Requires: `MINERU_API_KEY` and `AWS_S3_TEMP_BUCKET`
      - Automatic fallback to PyPDF on failure (network issues, quota exceeded, etc.)
      - S3 temporary storage: `backend/app/services/s3_temp_storage.py`
@@ -78,9 +79,11 @@ docker-compose up
 2. **LLM Service Layer**: Abstracted LLM integration with automatic failover
    - Implementation: `backend/app/services/llm_service.py`
    - Supports OpenAI, Google (Gemini), OpenRouter, and self-hosted models
-   - **Automatic Failover**: Configure `BACKUP_LLM_API_KEY` for redundancy
-   - Failover triggers: HTTP 429 (rate limit/quota), 5xx (server errors)
-   - Same URL/model for backup, only API key differs
+   - **Automatic Failover**: chain is `LLM_API_KEY` → `BACKUP_LLM_API_KEY` → `CLAUDE_API_KEY` (unset keys are skipped)
+   - Failover triggers: HTTP 429 (rate limit/quota), 401/403 (bad or blocked key), 5xx (server errors), connection errors; timeouts and other 4xx do not fail over
+   - Same URL/model for the backup keys, only API key differs
+   - Claude step uses the native Anthropic SDK with `claude-haiku-5-5`, thinking disabled, and strict structured outputs; Claude rejects schemas beyond roughly 30 fields, so the coding scheme is split into batches of 20 fields sent in parallel and merged into the same result shape as the OpenAI path
+   - GPT-5/GPT-6 run through the Responses API with reasoning effort `none`
 
 3. **Component Architecture**: Composition pattern with Radix UI primitives
    - UI components: `frontend/components/ui/`
@@ -182,6 +185,7 @@ The GitHub Actions workflow automatically:
 **Required GitHub Secrets** (for automatic deployment):
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` - AWS credentials
 - `LLM_API_KEY`, `LLM_API_URL`, `LLM_MODEL` - LLM configuration
+- `BACKUP_LLM_API_KEY`, `CLAUDE_API_KEY` - Optional failover keys
 - `FRONTEND_BUCKET_NAME`, `CLOUDFRONT_DISTRIBUTION_ID` - From Terraform outputs
 - `CUSTOM_DOMAIN`, `BUCKET_SUFFIX` - Domain and infrastructure naming
 

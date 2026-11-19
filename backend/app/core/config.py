@@ -16,6 +16,11 @@ class Settings:
     # Uses same LLM_API_URL and LLM_MODEL, only key differs
     BACKUP_LLM_API_KEY: Optional[str] = os.getenv("BACKUP_LLM_API_KEY", None)
 
+    # Claude fallback (optional): tried last, only after every LLM_API_URL key has failed.
+    # Runs with thinking disabled, which this model accepts.
+    CLAUDE_API_KEY: Optional[str] = os.getenv("CLAUDE_API_KEY", None)
+    CLAUDE_MODEL: str = "claude-haiku-5-5"
+
     _temperature_env = os.getenv("LLM_TEMPERATURE")
     if _temperature_env in (None, ""):
         TEMPERATURE: Optional[float] = 0.0
@@ -66,8 +71,7 @@ class Settings:
         if not model:
             return self.TEMPERATURE
 
-        normalized_model = model.lower()
-        if normalized_model.startswith("gpt-5"):
+        if self.is_reasoning_gpt(model):
             if self.TEMPERATURE not in (None, 1.0):
                 logger.warning(
                     "⚠️ Ignoring temperature %s for model %s; only the default is supported",
@@ -78,10 +82,16 @@ class Settings:
 
         return self.TEMPERATURE
 
+    @staticmethod
+    def is_reasoning_gpt(model: str) -> bool:
+        """Return True for the GPT-5 and GPT-6 families."""
+
+        return bool(model and model.lower().startswith(("gpt-5", "gpt-6")))
+
     def use_responses_api(self, model: str) -> bool:
         """Return True when the model should be called via the Responses API."""
 
-        return bool(model and model.lower().startswith("gpt-5"))
+        return self.is_reasoning_gpt(model)
 
     def validate(self):
         """Validate required settings"""
@@ -151,6 +161,8 @@ class Settings:
         logger.info("🔧 Settings summary:")
         logger.info(f"  🤖 LLM Model: {self.LLM_MODEL}")
         logger.info(f"  🔄 Backup API: {'Enabled' if self.BACKUP_LLM_API_KEY else 'Disabled'}")
+        claude = f"Enabled ({self.CLAUDE_MODEL})" if self.CLAUDE_API_KEY else "Disabled"
+        logger.info(f"  🔄 Claude fallback: {claude}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         if self.MINERU_API_KEY and self.AWS_S3_TEMP_BUCKET:
             logger.info("  🚀 MinerU: Enabled (with PyPDF fallback)")
@@ -167,7 +179,7 @@ class Settings:
 
         if normalized_model.startswith("gpt-4.1"):
             chunk_size = 960_000
-        elif normalized_model.startswith("gpt-5.4"):
+        elif normalized_model.startswith(("gpt-5.4", "gpt-6")):
             chunk_size = 960_000
         elif normalized_model.startswith("gpt-5"):
             chunk_size = 360_000
