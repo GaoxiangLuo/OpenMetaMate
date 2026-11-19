@@ -381,7 +381,8 @@ class MinerUPDFProcessor(BasePDFProcessor):
                         # details; footnotes carry affiliations and study notes
                         label = {"page_footnote": "FOOTNOTE"}.get(block_type, block_type.upper())
                         body = block.get("text", "").strip()
-                        if body:
+                        # A digits-only header/footer is a printed page number
+                        if body and not body.isdigit():
                             text = f"[{label}] {body}"
 
                     elif block_type == "chart":
