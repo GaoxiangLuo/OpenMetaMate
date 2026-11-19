@@ -186,6 +186,7 @@ The GitHub Actions workflow automatically:
 - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` - AWS credentials
 - `LLM_API_KEY`, `LLM_API_URL`, `LLM_MODEL` - LLM configuration
 - `BACKUP_LLM_API_KEY`, `CLAUDE_API_KEY` - Optional failover keys
+- `MINERU_API_KEY`, `AWS_S3_TEMP_BUCKET`, `S3_TEMP_AWS_ACCESS_KEY_ID`, `S3_TEMP_AWS_SECRET_ACCESS_KEY` - Optional MinerU extraction; the access key belongs to an IAM user limited to the temp bucket and is passed to the container
 - `FRONTEND_BUCKET_NAME`, `CLOUDFRONT_DISTRIBUTION_ID` - From Terraform outputs
 - `CUSTOM_DOMAIN`, `BUCKET_SUFFIX` - Domain and infrastructure naming
 

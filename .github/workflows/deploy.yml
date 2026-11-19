@@ -190,6 +190,8 @@ jobs:
                 "CLAUDE_API_KEY": "${{ secrets.CLAUDE_API_KEY }}",
                 "MINERU_API_KEY": "${{ secrets.MINERU_API_KEY }}",
                 "AWS_S3_TEMP_BUCKET": "${{ secrets.AWS_S3_TEMP_BUCKET }}",
+                "AWS_ACCESS_KEY_ID": "${{ secrets.S3_TEMP_AWS_ACCESS_KEY_ID }}",
+                "AWS_SECRET_ACCESS_KEY": "${{ secrets.S3_TEMP_AWS_SECRET_ACCESS_KEY }}",
                 "CORS_ORIGINS": "https://${{ secrets.CUSTOM_DOMAIN }},https://www.${{ secrets.CUSTOM_DOMAIN }}"
               }
             }
