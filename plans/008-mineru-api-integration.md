@@ -4,6 +4,8 @@
 **Status:** ✅ Implemented
 **Issue:** Integrate MinerU API as primary PDF processor to leverage free daily credits (2000 pages/day)
 
+> **Note (2026-11-19):** Defaults, kept block types, S3 access and quota limits superseded by [Plan 010](010-gpt6-claude-failover-mineru-default.md).
+
 ## Problem Description
 
 Currently, OpenMetaMate uses only PyPDFProcessor for PDF text extraction. While functional, PyPDF has limitations:

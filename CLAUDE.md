@@ -87,7 +87,7 @@ docker-compose up
 
 3. **Component Architecture**: Composition pattern with Radix UI primitives
    - UI components: `frontend/components/ui/`
-   - Domain components: `frontend/components/extraction/`
+   - Domain components: `frontend/components/`
 
 4. **Configuration Management**: Environment-based with validation
    - Backend: `backend/app/core/config.py` using Pydantic
@@ -126,17 +126,16 @@ docker-compose up
 
 ## Testing & Quality Assurance
 
-**Current State**: The project focuses on code quality through linting and type checking rather than unit tests.
+**Current State**: CI gates on linting, formatting, type checking and builds. Backend unit tests exist in `backend/tests/` but do not run in CI yet; the frontend has no tests.
 
 **Quality Checks (run automatically in CI/CD)**:
-- Backend: `uv run ruff check .` (linting) + `uv run ruff format --check .` (formatting)
-- Frontend: `pnpm lint` (ESLint) + `pnpm prettier:check` (formatting) + `pnpm typecheck` (TypeScript)
+- Backend: `uv run ruff check .` (linting) + `uv run ruff format --check .` (formatting) + import smoke test + Docker image build
+- Frontend: `pnpm lint` (ESLint) + `pnpm prettier:check` (formatting) + `pnpm typecheck` (TypeScript) + `pnpm build`
 
-**When adding tests** (future):
-- Backend: Use pytest with async support (`uv pip install pytest pytest-asyncio httpx`)
-- Frontend: Use Jest + React Testing Library
-- API: Test with FastAPI TestClient
-- CI/CD: Uncomment test steps in `.github/workflows/deploy.yml`
+**Tests**:
+- Backend: `uv run pytest` from `backend/` (pytest is in the `dev` dependency group). `tests/test_mineru_direct.py` is a manual script against the live MinerU API and is not collected. The test step in `.github/workflows/deploy.yml` is still commented out
+- Frontend (future): Jest + React Testing Library
+- API (future): FastAPI TestClient
 
 **Production Deployment Testing**:
 - Health checks: Backend `/health` endpoint monitoring
@@ -212,7 +211,7 @@ The GitHub Actions workflow automatically:
 - API client: `frontend/lib/api.ts`
 - Configuration: `frontend/lib/config.ts`
 - UI components: `frontend/components/ui/`
-- Extraction components: `frontend/components/extraction/`
+- Domain components: `frontend/components/` (`extraction-item-display.tsx`, `pdf-viewer-panel.tsx`, `coding-scheme-editor.tsx`)
 
 **Infrastructure & Deployment**:
 - Terraform main: `infra/main.tf`

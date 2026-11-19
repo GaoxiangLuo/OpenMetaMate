@@ -1,6 +1,7 @@
 """Direct test of MinerU API without S3.
 
 Tests MinerU API with a public PDF URL to inspect actual output structure.
+Manual script against the live API, so the entry point is not named test_* and pytest skips it.
 
 Usage:
     MINERU_API_KEY=your-key python -m tests.test_mineru_direct
@@ -17,7 +18,7 @@ from pathlib import Path
 import httpx
 
 
-async def test_mineru_direct():
+async def main():
     """Test MinerU API with a public PDF URL."""
     api_key = os.getenv("MINERU_API_KEY")
 
@@ -274,4 +275,4 @@ async def test_mineru_direct():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_mineru_direct())
+    asyncio.run(main())
