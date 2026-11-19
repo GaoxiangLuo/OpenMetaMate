@@ -149,6 +149,6 @@ Offline run on human-coded papers: 7,655 extracted values (79% correct by the hu
 
 ## Open Items
 
-- Calculated numeric fields (total hours, percentages from counts) get low scores even when right. Not addressed here: a single forward pass cannot be relied on for arithmetic. Left for a future agentic version with math tools.
+- Calculated numeric fields (total hours, percentages from counts) get low scores even when right. Not addressed here: a single forward pass cannot be relied on for arithmetic. Left for a follow-up PR that breaks a calculated value into input facts the decision model can check, with the arithmetic verified in code; that changes the extraction schema, so it needs its own benchmark run.
 - Measure AUROC on corrected labels with a random sample across the whole score range.
 - Not checked in a browser: the new progress message, the colour bands and the 100% on manual edits.
