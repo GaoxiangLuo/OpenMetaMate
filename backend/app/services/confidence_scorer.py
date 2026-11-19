@@ -1,13 +1,17 @@
 """Confidence scores for extracted values, from OpenAI's Decisions API.
 
 After extraction, the document is sent once more together with one yes/no question per
-extracted value ("is this value correct for this field?"). The decision model generates no
-text; it returns a probability per question, which becomes the confidence shown to the user.
+extracted value: "is this value correct for this field?", or for Boolean fields "should this
+field be True?". The decision model generates no text; it returns a probability per question,
+from which the confidence shown to the user is derived.
+
+The extraction's own reasoning is deliberately not shown to the decision model: in testing it
+raised the score of wrong values as much as right ones.
 """
 
 import logging
 import time
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import httpx
 from openai import AsyncOpenAI
@@ -26,8 +30,8 @@ REQUEST_TIMEOUT_SECONDS = 45.0
 
 SCORER_INSTRUCTIONS = """You are checking values that were extracted from the document below \
 for an educational systematic review. Each question names a field, gives its definition and \
-the value that was extracted. Judge whether that value is correct for the field according to \
-the document.
+the value that was extracted, or asks how the field should be coded. Judge each one \
+according to the document.
 
 Rules the extraction followed:
 1. If participant age is not explicit, it may be inferred from grade level, but the grade \
@@ -48,20 +52,46 @@ def _format_value(value: ExtractedValue) -> str:
     return str(value).strip()
 
 
-def build_question(
-    index: int, item: CodingSchemeItem, value: Union[str, float, bool, None]
-) -> Dict:
-    """Build the yes/no question that checks one extracted value."""
-    return {
-        "type": "predicate",
-        "name": f"q{index}",
-        "instructions": (
-            f"Field: {item.name}\n"
-            f"Definition: {item.description}\n"
+def _as_boolean(value: ExtractedValue) -> Optional[bool]:
+    """Return the extracted answer of a Boolean field, or None when it is not true/false."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+    return None
+
+
+def asks_field_directly(item: CodingSchemeItem, value: ExtractedValue) -> bool:
+    """Boolean fields are asked directly instead of having their extracted answer checked.
+
+    "Is the answer False correct?" is a double negative the decision model handles poorly.
+    Asking whether the field should be True and reading the answer from that side gave fewer
+    false alarms in validation.
+    """
+    return item.data_type == "Boolean" and _as_boolean(value) is not None
+
+
+def build_question(index: int, item: CodingSchemeItem, value: ExtractedValue) -> Dict:
+    """Build the yes/no question that scores one extracted value."""
+    header = f"Field: {item.name}\nDefinition: {item.description}\n"
+    if asks_field_directly(item, value):
+        claim = "According to the document and this definition, the field should be coded True."
+    else:
+        claim = (
             f"Extracted value: {_format_value(value)}\n"
-            "The extracted value is correct for this field according to the document."
-        ),
-    }
+            "The extracted value is correct for this field: it is either stated in the "
+            "document or follows from the document by the calculation or coding rule in the "
+            "definition."
+        )
+    return {"type": "predicate", "name": f"q{index}", "instructions": header + claim}
+
+
+def to_confidence(item: CodingSchemeItem, value: ExtractedValue, probability: float) -> float:
+    """Turn the model's probability into confidence in the extracted value."""
+    # A direct Boolean question returns P(True); an extracted False is supported by 1 - P
+    if asks_field_directly(item, value) and _as_boolean(value) is False:
+        probability = 1 - probability
+    return round(float(probability), 3)
 
 
 class ConfidenceScorer:
@@ -125,7 +155,8 @@ class ConfidenceScorer:
         for index, item in enumerate(targets):
             probability = answers.get(f"q{index}")
             if isinstance(probability, (int, float)) and 0 <= probability <= 1:
-                scores[item.name] = round(float(probability), 3)
+                value = extracted_data[item.name].value
+                scores[item.name] = to_confidence(item, value, probability)
 
         logger.info(
             f"✅ [STAGE 5/6] Confidence scored for {len(scores)}/{len(targets)} values "

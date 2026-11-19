@@ -30,12 +30,14 @@ Request shape:
   ],
   "questions": [
     {"type": "predicate", "name": "q0",
-     "instructions": "Field: Sample Size. Definition: <description>. Extracted value: 142. The extracted value is correct for this field according to the document."}
+     "instructions": "Field: Sample Size. Definition: <description>. Extracted value: 142. The extracted value is correct for this field: it is either stated in the document or follows from the document by the calculation or coding rule in the definition."}
   ]
 }
 ```
 
 Questions are named `q0…qN` and mapped back to fields by index, since field names contain spaces and slashes.
+
+Boolean fields are asked directly instead of having their extracted answer checked: the question is "According to the document and this definition, the field should be coded True", and the confidence is the returned probability when the extracted answer is `True` and one minus it when `False`. The extraction's reasoning is not shown to the decision model.
 
 ## Changes
 
@@ -73,6 +75,8 @@ Call count: normally two per paper, one extraction and one decision. Exceptions 
 |---|---|
 | Post-hoc check, not extraction | The API only answers closed-set questions and returns no citations |
 | `predicate` for all three data types | One comparable score for Boolean, Numeric and Text fields |
+| Boolean fields asked directly | "Is the answer False correct?" is a double negative; asking the field itself gave fewer false alarms |
+| Extraction reasoning withheld from the scorer | It made the scorer agree with wrong values |
 | One call per paper | Up to 400 questions per request; the paper is billed once, not per question |
 | Scorer failure never fails the request | Confidence is an aid; the extracted values are the product |
 | No fallback to self-reported confidence | One indicator should have one meaning; deployments on non-OpenAI providers show no confidence |
@@ -91,25 +95,47 @@ Call count: normally two per paper, one extraction and one decision. Exceptions 
 
 ## Validation Results
 
-Offline run on human-coded papers: 7,655 extracted values (79% correct), each scored by the decision model against the same text the extraction saw.
+Offline run on human-coded papers: 7,655 extracted values (79% correct by the human labels), each scored by the production scorer code against the same text the extraction saw.
 
 | Measure | Result |
 |---|---|
-| AUROC, all values | 0.74 (0.5 = no signal, 1.0 = perfect ranking) |
-| AUROC by type | Text 0.77, Numeric 0.70, Boolean 0.68 |
+| AUROC, all values | 0.75 (0.5 = no signal, 1.0 = perfect ranking) |
+| AUROC by type | Text 0.78, Boolean 0.70, Numeric 0.69 |
 | Refused questions | 0 |
 | Added latency per paper | Median 0.9s, max 2.4s |
 
-| Score | Share of values | Correct |
+| Score | Share of values | Correct by the labels |
 |---|---|---|
-| 0.99 and above | 64% | 90% |
-| 0.85 to 0.99 | 16% | 72% |
-| Below 0.85 | 19% | 50% |
+| 0.99 and above | 66% | 90% |
+| 0.85 to 0.99 | 15% | 74% |
+| Below 0.85 | 19% | 47% |
 
-- The score ranks errors usefully but is not a calibrated probability: values scored near 0 were still right about half the time.
-- Reviewing only the values below 0.85 (19% of all values) finds 46% of the wrong ones.
+- Reviewing only the values below 0.85 (19% of all values) finds 49% of the values labelled wrong.
 - UI colour bands were set from this table: green from 0.99, yellow from 0.85, red below.
 - Not compared against the old self-reported confidence, which the saved runs did not record.
+
+### Why the score is not a calibrated probability
+
+48 disagreements between score and label were sampled from the two extremes and adjudicated against the full paper by a stronger reasoning model, with its quotes checked against the paper text. This is model adjudication on a small sample, not human review.
+
+| Sampled group | Extraction actually right | Extraction actually wrong |
+|---|---|---|
+| Score 0.99 or above, labelled wrong (24) | 21 | 3 |
+| Score below 0.1, labelled correct (24) | 17 | 7 |
+
+- **Top end: mostly label errors.** The human coding left reported values blank, held a wrong value, or followed a different convention. If the sampled rate holds, the top band is right well above 95% of the time and AUROC on corrected labels would be roughly 0.85 to 0.90 (simulated, not measured).
+- **Low end: real false alarms.** The scorer gives near-zero scores to correct values that need a calculation (total hours, percentages from counts), to `False` on fields that code the absence of something, and to judgment-call categories.
+
+### Question variants tried
+
+| Variant | AUROC |
+|---|---|
+| Check every value ("the extracted value is correct") | 0.74 |
+| Same, with wording that explicitly allows calculated values | 0.73 |
+| Boolean fields asked directly ("the field should be coded True"), confidence taken as P or 1 - P | 0.75 |
+
+- The direct Boolean question is what ships. It cut Boolean false alarms (score below 0.1 on a value labelled correct) from 114 to 78.
+- Showing the scorer the extraction's reasoning was tested on six calculated values and rejected: it raised the score of wrong values with wrong arithmetic as much as right ones (one went from 0.01 to 0.99).
 
 ## Risks
 
@@ -122,5 +148,7 @@ Offline run on human-coded papers: 7,655 extracted values (79% correct), each sc
 
 ## Open Items
 
-- Whether AUROC 0.74 is good enough to ship, or the indicator should be shown differently (for example colour only, without a percentage).
+- Whether to show the percentage or colour bands only; a low score means "check this", not a literal probability.
+- Calculated numeric fields get low scores even when right. Options: hide low scores on them, or verify the inputs with the decision model and the arithmetic in code.
+- Measure AUROC on corrected labels with a random sample across the whole score range.
 - Not checked in a browser: the new progress message, the colour bands and the 100% on manual edits.

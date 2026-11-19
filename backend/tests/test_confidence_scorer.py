@@ -106,10 +106,44 @@ def test_question_states_field_definition_and_value() -> None:
     assert "Extracted value: 228\n" in question["instructions"]
 
 
-def test_question_formats_boolean_and_text_values() -> None:
-    boolean, text = _scheme(("Randomized", "Boolean"), ("Design", "Text"))
-    assert "Extracted value: True\n" in build_question(0, boolean, True)["instructions"]
+def test_text_question_states_the_extracted_value() -> None:
+    text = _scheme(("Design", "Text"))[0]
     assert "Extracted value: RCT\n" in build_question(1, text, " RCT ")["instructions"]
+
+
+def test_boolean_question_asks_the_field_directly() -> None:
+    boolean = _scheme(("Randomized", "Boolean"))[0]
+    for value in (True, False):
+        instructions = build_question(0, boolean, value)["instructions"]
+        assert "the field should be coded True" in instructions
+        # The extracted answer is not shown, so the question is the same either way
+        assert "Extracted value" not in instructions
+
+
+def test_boolean_false_confidence_is_the_complement() -> None:
+    scheme = _scheme(("Randomized", "Boolean"), ("Blinded", "Boolean"), ("Design", "Text"))
+    data = {"Randomized": _found(True), "Blinded": _found(False), "Design": _found("RCT")}
+    # The model says each field is 80% likely to be True (or the text value 80% likely right)
+    scores = _score(_scorer(StubClient(answer=lambda q: 0.8)), scheme, data)
+    assert scores == {"Randomized": 0.8, "Blinded": 0.2, "Design": 0.8}
+
+
+def test_boolean_field_with_non_boolean_value_is_checked_like_text() -> None:
+    boolean = _scheme(("Randomized", "Boolean"))[0]
+    instructions = build_question(0, boolean, "unclear")["instructions"]
+    assert "Extracted value: unclear\n" in instructions
+    scores = _score(
+        _scorer(StubClient(answer=lambda q: 0.3)), [boolean], {"Randomized": _found("unclear")}
+    )
+    assert scores == {"Randomized": 0.3}
+
+
+def test_boolean_given_as_text_is_still_asked_directly() -> None:
+    boolean = _scheme(("Randomized", "Boolean"))[0]
+    scores = _score(
+        _scorer(StubClient(answer=lambda q: 0.9)), [boolean], {"Randomized": _found("False")}
+    )
+    assert scores == {"Randomized": 0.1}
 
 
 def test_scores_map_back_to_field_names_in_one_request() -> None:
