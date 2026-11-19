@@ -14,10 +14,13 @@ export const config = {
   EXTRACTION_RATE_LIMIT_PER_MINUTE: 20,
 
   // UI Configuration
+  // Colour bands for the confidence indicator. The score is a verification probability
+  // from a decision model and clusters near 1, so the green band starts high: in offline
+  // validation against human-coded papers, values at or above 0.99 were right about 90% of
+  // the time, 0.85-0.99 about 70%, and below 0.85 about half.
   CONFIDENCE_THRESHOLDS: {
-    HIGH: 0.8,
-    MEDIUM: 0.6,
-    LOW: 0.4,
+    HIGH: 0.99,
+    MEDIUM: 0.85,
   },
 
   // Development flags

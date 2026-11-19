@@ -12,6 +12,7 @@ OpenMetaMate combines a FastAPI backend with a Next.js frontend for AI-driven PD
 - **LLM failover** (`backend/app/services/llm_service.py`): `LLM_API_KEY` → `BACKUP_LLM_API_KEY` → `CLAUDE_API_KEY`; unset keys are skipped. Triggers: 429, 401/403, 5xx, connection errors. Timeouts and other 4xx do not fail over.
 - **Claude step**: native Anthropic SDK, `claude-haiku-5-5`, thinking disabled; the coding scheme is split into batches of 20 fields, sent in parallel and merged.
 - **GPT-5/GPT-6**: Responses API with reasoning effort `none`.
+- **Confidence scoring** (`backend/app/services/confidence_scorer.py`): after extraction, one call to OpenAI's Decisions API (`DECISION_MODEL`, default `gpt-6-luna`) asks a yes/no question per found value and its probability becomes the `confidence`. Skipped, leaving no score, when `LLM_API_URL` is not OpenAI, the document was chunked, or the call fails. Manually edited values show 100%.
 - **Logging**: six `STAGE` markers (validation, scheme parsing, PDF text, LLM, post-processing, response). Use `grep "STAGE"` or `grep "❌"` to find failures.
 
 ## Build, Test, and Development Commands

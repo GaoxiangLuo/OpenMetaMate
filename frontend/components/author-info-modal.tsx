@@ -309,10 +309,10 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
-                    <strong>Enhanced Confidence:</strong> add self-consistency sampling for monte-carlo estimation with
-                    cached input tokens.
+                    <strong>Enhanced Confidence:</strong> verify each extracted value against the paper in a second pass
+                    with a decision model, and use its probability as the confidence score.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">

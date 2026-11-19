@@ -1,7 +1,7 @@
 # Plan 011: Confidence Scoring with a Decision Model
 
 **Date:** 2026-11-19
-**Status:** 📝 Proposed, not implemented
+**Status:** ✅ Implemented on branch `add/decision-confidence-scorer`, not merged
 **Issue:** The confidence shown next to each extracted value is not a measurement
 
 ## Problems
@@ -89,6 +89,28 @@ Call count: normally two per paper, one extraction and one decision. Exceptions 
 3. If it does, build the service, pipeline wiring, tests and frontend changes.
 4. Set the UI colour thresholds (currently 0.85 / 0.65 in `ConfidenceIndicator`) from the measured distribution.
 
+## Validation Results
+
+Offline run on human-coded papers: 7,655 extracted values (79% correct), each scored by the decision model against the same text the extraction saw.
+
+| Measure | Result |
+|---|---|
+| AUROC, all values | 0.74 (0.5 = no signal, 1.0 = perfect ranking) |
+| AUROC by type | Text 0.77, Numeric 0.70, Boolean 0.68 |
+| Refused questions | 0 |
+| Added latency per paper | Median 0.9s, max 2.4s |
+
+| Score | Share of values | Correct |
+|---|---|---|
+| 0.99 and above | 64% | 90% |
+| 0.85 to 0.99 | 16% | 72% |
+| Below 0.85 | 19% | 50% |
+
+- The score ranks errors usefully but is not a calibrated probability: values scored near 0 were still right about half the time.
+- Reviewing only the values below 0.85 (19% of all values) finds 46% of the wrong ones.
+- UI colour bands were set from this table: green from 0.99, yellow from 0.85, red below.
+- Not compared against the old self-reported confidence, which the saved runs did not record.
+
 ## Risks
 
 - **Calibration is undocumented.** OpenAI does not define what the probability means; one independent test saw values pegged at 1.0. Step 2 decides whether the feature ships.
@@ -100,4 +122,5 @@ Call count: normally two per paper, one extraction and one decision. Exceptions 
 
 ## Open Items
 
-- The pass mark for step 2 (what AUROC is good enough to ship).
+- Whether AUROC 0.74 is good enough to ship, or the indicator should be shown differently (for example colour only, without a percentage).
+- Not checked in a browser: the new progress message, the colour bands and the 100% on manual edits.

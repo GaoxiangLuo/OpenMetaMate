@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ChevronDown, ChevronUp, Pencil, X, Check, Sparkles } from "lucide-react"
+import config from "@/lib/config"
 import type { Citation, CodingSchemeItem, ExtractionResultItem } from "@/lib/types"
 
 const answerTypeStyles: Record<ExtractionResultItem["answerType"], string> = {
@@ -17,8 +18,8 @@ const answerTypeStyles: Record<ExtractionResultItem["answerType"], string> = {
 const ConfidenceIndicator = ({ score }: { score: number }) => {
   const boundedScore = Math.max(0, Math.min(1, score))
   const getColor = () => {
-    if (boundedScore >= 0.85) return "bg-green-500"
-    if (boundedScore >= 0.65) return "bg-yellow-400"
+    if (boundedScore >= config.CONFIDENCE_THRESHOLDS.HIGH) return "bg-green-500"
+    if (boundedScore >= config.CONFIDENCE_THRESHOLDS.MEDIUM) return "bg-yellow-400"
     return "bg-red-500"
   }
   return (
@@ -141,7 +142,8 @@ export default function ExtractionItemDisplay({
 
     nextItem.answerType = draftAnswerType
     nextItem.citations = draftAnswerType === "Grounded" ? item.citations : []
-    nextItem.confidence = draftAnswerType === "Grounded" ? item.confidence : null
+    // A value the reviewer saved by hand is treated as confirmed
+    nextItem.confidence = 1
     nextItem.reasoning = draftAnswerType === "Inference" ? draftReasoning.trim() || null : null
 
     onSave(nextItem)

@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,10 @@ class Settings:
     # Runs with thinking disabled, which this model accepts.
     CLAUDE_API_KEY: Optional[str] = os.getenv("CLAUDE_API_KEY", None)
     CLAUDE_MODEL: str = "claude-haiku-5-5"
+
+    # Decision model that scores each extracted value after extraction (OpenAI Decisions
+    # API, called with the LLM keys above). Set to an empty string to turn scoring off.
+    DECISION_MODEL: str = os.getenv("DECISION_MODEL", "gpt-6-luna")
 
     _temperature_env = os.getenv("LLM_TEMPERATURE")
     if _temperature_env in (None, ""):
@@ -87,6 +92,12 @@ class Settings:
         """Return True for the GPT-5 and GPT-6 families."""
 
         return bool(model and model.lower().startswith(("gpt-5", "gpt-6")))
+
+    def decision_scoring_enabled(self) -> bool:
+        """Return True when confidence scoring can run: only OpenAI hosts the Decisions API."""
+
+        host = urlparse(self.LLM_API_URL).hostname or ""
+        return bool(self.DECISION_MODEL) and host == "api.openai.com"
 
     def use_responses_api(self, model: str) -> bool:
         """Return True when the model should be called via the Responses API."""
@@ -163,6 +174,8 @@ class Settings:
         logger.info(f"  🔄 Backup API: {'Enabled' if self.BACKUP_LLM_API_KEY else 'Disabled'}")
         claude = f"Enabled ({self.CLAUDE_MODEL})" if self.CLAUDE_API_KEY else "Disabled"
         logger.info(f"  🔄 Claude fallback: {claude}")
+        scoring = f"Enabled ({self.DECISION_MODEL})" if self.decision_scoring_enabled() else "Off"
+        logger.info(f"  🎯 Confidence scoring: {scoring}")
         logger.info(f"  🎭 PDF Processor: {self.PDF_PROCESSOR}")
         if self.MINERU_API_KEY and self.AWS_S3_TEMP_BUCKET:
             logger.info("  🚀 MinerU: Enabled (with PyPDF fallback)")
