@@ -161,6 +161,16 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
               </h3>
               <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2026]</span>
+                  <span>
+                    <strong>MetaMate 1.1: confidence scores from a decision model.</strong> After extraction, a decision
+                    model checks every extracted value against the paper in a second pass, and the probability it
+                    returns is the confidence score shown next to the value. This replaces the score the extraction
+                    model used to report about itself. Green means 99% or higher, yellow 85% or higher, and red is worth
+                    a look first. Values you edit yourself show 100%.
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
                   <span>
                     Based on insights from our user study, we redesigned much of the MetaMate experience: a new embedded
