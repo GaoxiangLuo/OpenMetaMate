@@ -168,6 +168,21 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                   </span>
                 </div>
                 <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[03/2026]</span>
+                  <span>
+                    <strong>MetaMate&apos;s source code is now public</strong> on{" "}
+                    <a
+                      href="https://github.com/GaoxiangLuo/OpenMetaMate"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      GitHub
+                    </a>
+                    , free for non-commercial use. You can run it on your own computer with your own API key.
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
                   <span>
                     Based on insights from our user study, we redesigned much of the MetaMate experience: a new embedded
