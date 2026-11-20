@@ -163,11 +163,8 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                 <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2026]</span>
                   <span>
-                    <strong>Confidence scores now come from a decision model.</strong> After extraction, a decision
-                    model checks every extracted value against the paper in a second pass, and the probability it
-                    returns is the confidence score shown next to the value. This replaces the score the extraction
-                    model used to report about itself. Green means 99% or higher, yellow 85% or higher, and red is worth
-                    a look first. Values you edit yourself show 100%.
+                    <strong>Enhanced confidence scores</strong> now help you decide which extracted values to check
+                    first.
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -321,8 +318,7 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                 <div className="flex items-start gap-2">
                   <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
-                    <strong>Enhanced Confidence:</strong> verify each extracted value against the paper in a second pass
-                    with a decision model, and use its probability as the confidence score.
+                    <strong>Enhanced Confidence:</strong> confidence scores powered by a decision model.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
