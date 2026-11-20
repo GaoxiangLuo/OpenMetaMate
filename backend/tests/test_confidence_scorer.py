@@ -1,6 +1,7 @@
 """Tests for the decision-model confidence scorer."""
 
 import asyncio
+import json
 
 import httpx
 import openai
@@ -229,6 +230,34 @@ def test_more_than_400_fields_are_split_across_requests() -> None:
 
     assert len(scores) == count
     assert [len(b["questions"]) for b in client.bodies] == [MAX_QUESTIONS_PER_REQUEST, 5]
+
+
+def test_request_goes_through_the_real_sdk_client() -> None:
+    """The scorer relies on the SDK returning the raw response for cast_to=httpx.Response.
+
+    The other tests use a stub client, so an SDK upgrade that changed this would otherwise
+    turn scoring off silently (score() swallows the error and returns no scores).
+    """
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        questions = json.loads(request.content)["questions"]
+        answers = [{"type": "predicate", "name": q["name"], "probability": 0.9} for q in questions]
+        return httpx.Response(200, json={"answers": answers})
+
+    client = openai.AsyncOpenAI(
+        api_key="test-key",
+        base_url="https://api.openai.com/v1",
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    scheme = _scheme(("Design", "Text"))
+
+    scores = _score(_scorer(client), scheme, {"Design": _found("RCT")})
+
+    assert scores == {"Design": 0.9}
+    assert [r.url.path for r in requests] == ["/v1/decisions"]
+    assert json.loads(requests[0].content)["model"] == "gpt-6-luna"
 
 
 def test_scorer_without_clients_is_disabled() -> None:
