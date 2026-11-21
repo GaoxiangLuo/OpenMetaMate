@@ -161,6 +161,28 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
               </h3>
               <div className="space-y-2 text-sm text-slate-700 dark:text-slate-300">
                 <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[11/2026]</span>
+                  <span>
+                    <strong>Enhanced confidence scores</strong> now help you decide which extracted values to check
+                    first.
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[03/2026]</span>
+                  <span>
+                    <strong>MetaMate&apos;s source code is now public</strong> on{" "}
+                    <a
+                      href="https://github.com/GaoxiangLuo/OpenMetaMate"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      GitHub
+                    </a>
+                    , free for non-commercial use. You can run it on your own computer with your own API key.
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">[02/2026]</span>
                   <span>
                     Based on insights from our user study, we redesigned much of the MetaMate experience: a new embedded
@@ -309,10 +331,9 @@ export default function AuthorInfoModal({ isOpen, onOpenChange, scrollToMindful 
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="text-slate-400 dark:text-slate-500 mt-0.5">☐</span>
+                  <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
                   <span>
-                    <strong>Enhanced Confidence:</strong> add self-consistency sampling for monte-carlo estimation with
-                    cached input tokens.
+                    <strong>Enhanced Confidence:</strong> confidence scores powered by a decision model.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">

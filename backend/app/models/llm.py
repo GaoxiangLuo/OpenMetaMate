@@ -41,12 +41,6 @@ class LLMExtractionField(BaseModel):
         default_factory=list,
         description="References that point to the page numbers where supporting evidence appears.",
     )
-    confidence: Optional[float] = Field(
-        default=None,
-        ge=0,
-        le=1,
-        description="Optional self-reported confidence score between 0 and 1.",
-    )
     reasoning: Optional[str] = Field(
         default=None,
         description="Optional free-form reasoning explaining how the value was determined.",

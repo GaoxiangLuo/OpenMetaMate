@@ -33,7 +33,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200 per minute",
 app = FastAPI(
     title="MetaMate Extraction API",
     description="Automated PDF data extraction for systematic reviews",
-    version="2.0.0",
+    version="1.1.0",
 )
 
 # Add rate limiter to app state

@@ -28,7 +28,6 @@ For every coding scheme field, return an object with:
 - value: the extracted answer or null when unavailable.
 - answer_type: "Grounded", "Inference", or "Not Found".
 - citations: list of objects with page_number (integer) and type ("Exact Quote" or "Inference"). Provide reasoning for inference citations.
-- confidence: optional float between 0 and 1.
 - reasoning: optional explanation when additional context is helpful.
 
 Leave fields null when they are not present, and set answer_type to "Not Found" with an empty citations list. Prefer "Grounded" when you can reference a specific page marker. Only infer when necessary and explain the inference succinctly.
@@ -62,7 +61,6 @@ Return an object with:
 - `citations`: List of objects, each containing:
     - `page_number` (integer, from the PAGE marker)
     - `type` (either "Exact Quote" or "Inference"). Provide reasoning for any inference citations.
-- `confidence` (optional): Float between 0 and 1.
 - `reasoning` (optional): Additional explanation for context, especially when valuable for understanding.
 
 After each extraction, validate that the output strictly adheres to the required object structure and logic; if issues are detected, self-correct and retry.

@@ -1,6 +1,6 @@
 [project]
 name = "metamate-backend"
-version = "2.0.0"
+version = "1.1.0"
 description = "AI-powered PDF data extraction API"
 requires-python = ">=3.11,<3.12"
 dependencies = [

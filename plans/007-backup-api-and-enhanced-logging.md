@@ -4,6 +4,8 @@
 **Status:** Planning
 **Issue:** Need backup LLM API for reliability and simple logging to identify which pipeline stage fails
 
+> **Note (2026-11-19):** Failover design superseded by [Plan 010](010-gpt6-claude-failover-mineru-default.md). Stage logging unchanged.
+
 ## Problem Description
 
 ### 1. Single Point of Failure - LLM API

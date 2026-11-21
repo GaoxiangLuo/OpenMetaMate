@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import random
 import time
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +15,7 @@ from app.core.exceptions import ExtractionError, PDFProcessingError
 from app.core.utils import get_expected_key, is_not_found_value
 from app.models.requests import CodingSchemeItem
 from app.models.responses import Citation, ExtractionResponse, ExtractionResultItem
+from app.services.confidence_scorer import ConfidenceScorer
 from app.services.llm_service import LLMService
 from app.services.pdf_processor import (
     PDFExtractionResult,
@@ -141,24 +141,8 @@ def build_extraction_item(
     )
 
     reasoning = raw_data.get("reasoning") or None
-    confidence_value = raw_data.get("confidence")
-    confidence: Optional[float] = None
-
-    if confidence_value is not None:
-        try:
-            parsed_confidence = float(confidence_value)
-            if 0 <= parsed_confidence <= 1:
-                confidence = round(parsed_confidence, 3)
-        except (TypeError, ValueError):
-            logger.debug(
-                "⚠️ Ignoring non-numeric confidence for '%s': %s",
-                fallback_label,
-                confidence_value,
-            )
-
     if answer_type == "Not Found":
         raw_value = "Not Found"
-        confidence = None
         citations = []
         reasoning = None
     else:
@@ -175,13 +159,11 @@ def build_extraction_item(
                 reasoning=None,
             )
 
-        if confidence is None:
-            confidence = round(random.uniform(0.7, 1.0), 3)
-
     try:
         return ExtractionResultItem(
             value=raw_value,
-            confidence=confidence,
+            # Filled in afterwards by the confidence scorer, when it runs
+            confidence=None,
             answer_type=answer_type,
             citations=citations,
             reasoning=reasoning,
@@ -199,6 +181,28 @@ def build_extraction_item(
             citations=[],
             reasoning=None,
         )
+
+
+def should_score_confidence(scorer: ConfidenceScorer, chunks: List[str]) -> bool:
+    """Scoring needs the whole document in one request, so chunked documents are skipped."""
+
+    if not scorer.enabled:
+        return False
+    if len(chunks) != 1:
+        logger.info("ℹ️ [STAGE 5/6] Confidence scoring skipped: document was split into chunks")
+        return False
+    return True
+
+
+def apply_confidence_scores(
+    extracted_data: Dict[str, ExtractionResultItem], scores: Dict[str, float]
+) -> None:
+    """Attach scorer results to the extracted items; unscored items keep no confidence."""
+
+    for name, score in scores.items():
+        item = extracted_data.get(name)
+        if item is not None and item.answer_type != "Not Found":
+            item.confidence = score
 
 
 # Create PDF processor based on configuration
@@ -374,9 +378,12 @@ async def extract_data(
                     logger.debug(f"🔍 '{item.name}' not found in document")
                 else:
                     found_count += 1
-                    logger.debug(
-                        "✅ '%s' extracted with confidence %s", item.name, parsed_item.confidence
-                    )
+                    logger.debug("✅ '%s' extracted", item.name)
+
+        scorer = ConfidenceScorer.from_llm_service(llm_service)
+        if should_score_confidence(scorer, chunks):
+            scores = await scorer.score(text, parsed_scheme, extracted_data)
+            apply_confidence_scores(extracted_data, scores)
 
         # Calculate processing time
         processing_time = time.time() - start_time
@@ -740,6 +747,27 @@ async def extract_data_stream(
                         not_found_count += 1
                     else:
                         found_count += 1
+
+            scorer = ConfidenceScorer.from_llm_service(llm_service)
+            if should_score_confidence(scorer, chunks):
+                yield (
+                    json.dumps(
+                        {
+                            "type": "progress",
+                            "message": "Checking extracted values...",
+                            "progress": 93,
+                        }
+                    )
+                    + "\n"
+                )
+                scoring_task = asyncio.create_task(
+                    scorer.score(text, parsed_scheme, extracted_data)
+                )
+                # Heartbeats keep the connection open while the scorer runs
+                while not (await asyncio.wait({scoring_task}, timeout=15.0))[0]:
+                    elapsed = int(time.time() - start_time)
+                    yield json.dumps({"type": "heartbeat", "elapsed": elapsed}) + "\n"
+                apply_confidence_scores(extracted_data, scoring_task.result())
 
             processing_time = time.time() - start_time
 
